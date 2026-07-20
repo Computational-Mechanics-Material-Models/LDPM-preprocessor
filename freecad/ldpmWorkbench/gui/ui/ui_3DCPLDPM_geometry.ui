@@ -1,0 +1,1072 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>624</width>
+    <height>489</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>:/icons/PartDesignWorkbench.svg</normaloff>:/icons/PartDesignWorkbench.svg</iconset>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <property name="sizeGripEnabled" stdset="0">
+   <bool>true</bool>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <layout class="QGridLayout" name="gridLayout">
+   <item row="1" column="0">
+    <widget class="QGroupBox" name="groupBox_2">
+     <property name="styleSheet">
+      <string notr="true">border-color: rgb(182, 182, 182);</string>
+     </property>
+     <property name="title">
+      <string>Parameters</string>
+     </property>
+     <layout class="QGridLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <item row="1" column="0">
+       <widget class="QStackedWidget" name="widgetStack2">
+        <property name="styleSheet">
+         <string notr="true">border-color: rgb(182, 182, 182);</string>
+        </property>
+        <property name="currentIndex">
+         <number>0</number>
+        </property>
+        <widget class="QWidget" name="Page1_box">
+         <layout class="QGridLayout">
+          <property name="leftMargin">
+           <number>9</number>
+          </property>
+          <property name="topMargin">
+           <number>9</number>
+          </property>
+          <property name="rightMargin">
+           <number>9</number>
+          </property>
+          <property name="bottomMargin">
+           <number>9</number>
+          </property>
+          <property name="spacing">
+           <number>6</number>
+          </property>
+          <item row="0" column="0">
+           <layout class="QGridLayout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="textLabel4">
+              <property name="text">
+               <string>X:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="Gui::QuantitySpinBox" name="boxHeight" native="true">
+              <property name="keyboardTracking" stdset="0">
+               <bool>false</bool>
+              </property>
+              <property name="unit" stdset="0">
+               <string notr="true">mm</string>
+              </property>
+              <property name="value" stdset="0">
+               <double>10.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="textLabel3">
+              <property name="text">
+               <string>Y:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="Gui::QuantitySpinBox" name="boxWidth" native="true">
+              <property name="keyboardTracking" stdset="0">
+               <bool>false</bool>
+              </property>
+              <property name="unit" stdset="0">
+               <string notr="true">mm</string>
+              </property>
+              <property name="value" stdset="0">
+               <double>10.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="textLabel2">
+              <property name="text">
+               <string>Z:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="2">
+             <widget class="Gui::QuantitySpinBox" name="boxLength" native="true">
+              <property name="keyboardTracking" stdset="0">
+               <bool>false</bool>
+              </property>
+              <property name="unit" stdset="0">
+               <string notr="true">mm</string>
+              </property>
+              <property name="value" stdset="0">
+               <double>10.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="0">
+           <spacer>
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Expanding</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>51</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="Page2_cylinder">
+         <layout class="QGridLayout">
+          <property name="leftMargin">
+           <number>9</number>
+          </property>
+          <property name="topMargin">
+           <number>9</number>
+          </property>
+          <property name="rightMargin">
+           <number>9</number>
+          </property>
+          <property name="bottomMargin">
+           <number>9</number>
+          </property>
+          <property name="spacing">
+           <number>6</number>
+          </property>
+          <item row="0" column="0">
+           <layout class="QGridLayout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <item row="1" column="0">
+             <widget class="QLabel" name="textLabel6">
+              <property name="text">
+               <string>Height (along Z-axis):</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QLabel" name="textLabel5">
+              <property name="text">
+               <string>Radius (along XY-Plane):</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="Gui::QuantitySpinBox" name="cylinderHeight" native="true">
+              <property name="keyboardTracking" stdset="0">
+               <bool>false</bool>
+              </property>
+              <property name="unit" stdset="0">
+               <string notr="true">mm</string>
+              </property>
+              <property name="value" stdset="0">
+               <double>10.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="Gui::QuantitySpinBox" name="cylinderRadius" native="true">
+              <property name="keyboardTracking" stdset="0">
+               <bool>false</bool>
+              </property>
+              <property name="unit" stdset="0">
+               <string notr="true">mm</string>
+              </property>
+              <property name="value" stdset="0">
+               <double>2.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="0">
+           <spacer>
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Expanding</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>31</width>
+              <height>81</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="page">
+         <layout class="QGridLayout" name="gridLayout_2">
+          <item row="0" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout">
+            <item>
+             <widget class="QPushButton" name="selectObjectButton">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>Select Object</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="deselectObjectButton">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string>Deselect Object</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="0">
+           <widget class="QTextEdit" name="selectedObject">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="page_2">
+         <layout class="QGridLayout" name="gridLayout_3">
+          <item row="0" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout_2">
+            <item>
+             <widget class="QLineEdit" name="cadName">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QToolButton" name="readFileButton">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="text">
+               <string notr="true">...</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="0">
+           <widget class="QTextEdit" name="cadFile">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="page_sweep3dp">
+         <layout class="QVBoxLayout" name="verticalLayout_sweep3dp">
+          <item>
+           <widget class="QGroupBox" name="groupBox_profile">
+            <property name="title">
+             <string>Profile Sketch (XZ or YZ plane)</string>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_profile">
+             <item>
+              <widget class="QComboBox" name="sweep3dpProfileType">
+<item>
+                <property name="text">
+                 <string>Rectangular Profile (Layer Width/Height)</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Upload CAD File (Closed Loop)</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item>
+              <widget class="QStackedWidget" name="profileStack">
+               <property name="currentIndex">
+                <number>0</number>
+               </property>
+               <widget class="QWidget" name="page_rect_profile">
+                <layout class="QGridLayout" name="gridLayout_rect_profile">
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="label_layerWidth">
+                   <property name="text">
+                    <string>Layer Width:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="Gui::QuantitySpinBox" name="sweep3dpLayerWidth" native="true">
+<property name="keyboardTracking" stdset="0">
+                    <bool>false</bool>
+                   </property>
+                   <property name="unit" stdset="0">
+                    <string notr="true">mm</string>
+                   </property>
+                   <property name="value" stdset="0">
+                    <double>0.400000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="0">
+                  <widget class="QLabel" name="label_layerHeight">
+                   <property name="text">
+                    <string>Layer Height:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="1" column="1">
+                  <widget class="Gui::QuantitySpinBox" name="sweep3dpLayerHeight" native="true">
+<property name="keyboardTracking" stdset="0">
+                    <bool>false</bool>
+                   </property>
+                   <property name="unit" stdset="0">
+                    <string notr="true">mm</string>
+                   </property>
+                   <property name="value" stdset="0">
+                    <double>0.200000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+               <widget class="QWidget" name="page_cad_profile">
+                <layout class="QVBoxLayout" name="verticalLayout_cad_profile">
+                 <item>
+                  <layout class="QHBoxLayout" name="horizontalLayout_profile">
+                   <item>
+                    <widget class="QLineEdit" name="sweep3dpProfileFileName">
+<property name="enabled">
+                      <bool>true</bool>
+                     </property>
+                     <property name="readOnly">
+                      <bool>true</bool>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QToolButton" name="readProfileFileButton">
+                     <property name="enabled">
+                      <bool>true</bool>
+                     </property>
+                     <property name="text">
+                      <string notr="true">...</string>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
+                 </item>
+                 <item>
+                  <widget class="QTextEdit" name="sweep3dpProfileFile">
+<property name="enabled">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </widget>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="groupBox_path">
+            <property name="title">
+             <string>Path Sketch (XY plane)</string>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_path">
+             <item>
+              <widget class="QComboBox" name="sweep3dpPathType">
+<item>
+                <property name="text">
+                 <string>Straight Line Path</string>
+                </property>
+               </item>
+              <item>
+               <property name="text">
+                <string>Square Path</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>FreeCAD Sketch</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Raster Slabs</string>
+               </property>
+              </item>
+             </widget>
+             </item>
+             <item>
+              <widget class="QStackedWidget" name="pathStack">
+               <property name="currentIndex">
+                <number>0</number>
+               </property>
+               <widget class="QWidget" name="page_line_path">
+                <layout class="QGridLayout" name="gridLayout_line_path">
+                 <item row="0" column="0">
+                  <widget class="QLabel" name="label_pathDistance">
+                   <property name="text">
+                    <string>Path Distance:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="0" column="1">
+                  <widget class="Gui::QuantitySpinBox" name="sweep3dpPathDistance" native="true">
+<property name="keyboardTracking" stdset="0">
+                    <bool>false</bool>
+                   </property>
+                   <property name="unit" stdset="0">
+                    <string notr="true">mm</string>
+                   </property>
+                   <property name="value" stdset="0">
+                    <double>100.000000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                <item row="1" column="0">
+                 <widget class="QLabel" name="label_numLayersLine">
+                  <property name="text">
+                   <string>Number of Layers:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QSpinBox" name="sweep3dpNumLayers">
+<property name="minimum">
+                   <number>1</number>
+                  </property>
+                  <property name="value">
+                   <number>1</number>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="page_square_path">
+               <layout class="QGridLayout" name="gridLayout_square_path">
+                <item row="0" column="0">
+                 <widget class="QLabel" name="label_pathSide">
+                  <property name="text">
+                   <string>Square Side:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="Gui::QuantitySpinBox" name="sweep3dpPathSide" native="true">
+<property name="keyboardTracking" stdset="0">
+                   <bool>false</bool>
+                  </property>
+                  <property name="unit" stdset="0">
+                   <string notr="true">mm</string>
+                  </property>
+                  <property name="value" stdset="0">
+                   <double>50.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QLabel" name="label_numLayersSquare">
+                  <property name="text">
+                   <string>Number of Layers:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QSpinBox" name="sweep3dpNumLayersSquare">
+<property name="minimum">
+                   <number>1</number>
+                  </property>
+                  <property name="value">
+                   <number>1</number>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="page_sketch_path">
+               <layout class="QVBoxLayout" name="verticalLayout_sketch_path">
+                <item>
+                 <layout class="QHBoxLayout" name="horizontalLayout_sketch_path">
+                  <item>
+                   <widget class="QLabel" name="label_sketchPath">
+                    <property name="text">
+                     <string>Select Sketch:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QComboBox" name="sweep3dpPathSketch">
+<property name="enabled">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <layout class="QHBoxLayout" name="horizontalLayout_sketch_buttons">
+                  <item>
+                   <widget class="QPushButton" name="createSketchButton">
+                    <property name="enabled">
+                     <bool>true</bool>
+                    </property>
+                    <property name="text">
+                     <string>Create New Sketch</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="selectSketchButton">
+                    <property name="enabled">
+                     <bool>true</bool>
+                    </property>
+                    <property name="text">
+                     <string>Select from Document</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+                <item>
+                 <widget class="QLineEdit" name="sweep3dpPathSketchName">
+<property name="enabled">
+                   <bool>true</bool>
+                  </property>
+                  <property name="readOnly">
+                   <bool>true</bool>
+                  </property>
+                  <property name="placeholderText">
+                   <string>No sketch selected</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <layout class="QGridLayout" name="gridLayout_sketch_path_layers">
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="label_numLayersSketch">
+                    <property name="text">
+                     <string>Number of Layers:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QSpinBox" name="sweep3dpNumLayersSketch">
+<property name="minimum">
+                     <number>1</number>
+                    </property>
+                    <property name="value">
+                     <number>1</number>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="page_raster_slabs_path">
+               <layout class="QGridLayout" name="gridLayout_raster_slabs_path">
+                <item row="0" column="0">
+                 <widget class="QLabel" name="label_rasterLoops">
+                  <property name="text">
+                   <string>Number of Raster Loops:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QSpinBox" name="sweep3dpRasterLoops">
+<property name="minimum">
+                   <number>1</number>
+                  </property>
+                  <property name="maximum">
+                   <number>1000</number>
+                  </property>
+                  <property name="value">
+                   <number>1</number>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QLabel" name="label_rasterSpacing">
+                  <property name="text">
+                   <string>Spacing Between Paths:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="Gui::QuantitySpinBox" name="sweep3dpRasterSpacing" native="true">
+<property name="keyboardTracking" stdset="0">
+                   <bool>false</bool>
+                  </property>
+                  <property name="unit" stdset="0">
+                   <string notr="true">mm</string>
+                  </property>
+                  <property name="value" stdset="0">
+                   <double>5.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QLabel" name="label_rasterCornerFillet">
+                  <property name="text">
+                   <string>Corner Fillet:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="Gui::QuantitySpinBox" name="sweep3dpRasterCornerFillet" native="true">
+<property name="keyboardTracking" stdset="0">
+                   <bool>false</bool>
+                  </property>
+                  <property name="unit" stdset="0">
+                   <string notr="true">mm</string>
+                  </property>
+                  <property name="value" stdset="0">
+                   <double>0.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="0">
+                 <widget class="QLabel" name="label_rasterPathLength">
+                  <property name="text">
+                   <string>Raster Path Length:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="1">
+                 <widget class="Gui::QuantitySpinBox" name="sweep3dpRasterPathLength" native="true">
+<property name="keyboardTracking" stdset="0">
+                   <bool>false</bool>
+                  </property>
+                  <property name="unit" stdset="0">
+                   <string notr="true">mm</string>
+                  </property>
+                  <property name="value" stdset="0">
+                   <double>100.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="0">
+                 <widget class="QLabel" name="label_numSlicesRaster">
+                  <property name="text">
+                   <string>Number of Slices:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="1">
+                 <widget class="QSpinBox" name="sweep3dpNumSlicesRaster">
+<property name="minimum">
+                   <number>1</number>
+                  </property>
+                  <property name="maximum">
+                   <number>8</number>
+                  </property>
+                  <property name="value">
+                   <number>2</number>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="0">
+                 <widget class="QLabel" name="sweep3dpSliceDirLabel1">
+                  <property name="text">
+                   <string>Slice 1 (in deg)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="1">
+                 <widget class="QDoubleSpinBox" name="sweep3dpSliceDir1">
+<property name="minimum">
+                   <double>-360.000000000000000</double>
+                  </property>
+                  <property name="maximum">
+                   <double>360.000000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>0.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="6" column="0">
+                 <widget class="QLabel" name="sweep3dpSliceDirLabel2">
+                  <property name="text">
+                   <string>Slice 2 (in deg)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="6" column="1">
+                 <widget class="QDoubleSpinBox" name="sweep3dpSliceDir2">
+<property name="minimum">
+                   <double>-360.000000000000000</double>
+                  </property>
+                  <property name="maximum">
+                   <double>360.000000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>90.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="7" column="0">
+                 <widget class="QLabel" name="sweep3dpSliceDirLabel3">
+                  <property name="text">
+                   <string>Slice 3 (in deg)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="7" column="1">
+                 <widget class="QDoubleSpinBox" name="sweep3dpSliceDir3">
+<property name="minimum">
+                   <double>-360.000000000000000</double>
+                  </property>
+                  <property name="maximum">
+                   <double>360.000000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>0.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="8" column="0">
+                 <widget class="QLabel" name="sweep3dpSliceDirLabel4">
+                  <property name="text">
+                   <string>Slice 4 (in deg)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="8" column="1">
+                 <widget class="QDoubleSpinBox" name="sweep3dpSliceDir4">
+<property name="minimum">
+                   <double>-360.000000000000000</double>
+                  </property>
+                  <property name="maximum">
+                   <double>360.000000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>90.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="9" column="0">
+                 <widget class="QLabel" name="sweep3dpSliceDirLabel5">
+                  <property name="text">
+                   <string>Slice 5 (in deg)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="9" column="1">
+                 <widget class="QDoubleSpinBox" name="sweep3dpSliceDir5">
+<property name="minimum">
+                   <double>-360.000000000000000</double>
+                  </property>
+                  <property name="maximum">
+                   <double>360.000000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>0.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="10" column="0">
+                 <widget class="QLabel" name="sweep3dpSliceDirLabel6">
+                  <property name="text">
+                   <string>Slice 6 (in deg)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="10" column="1">
+                 <widget class="QDoubleSpinBox" name="sweep3dpSliceDir6">
+<property name="minimum">
+                   <double>-360.000000000000000</double>
+                  </property>
+                  <property name="maximum">
+                   <double>360.000000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>90.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="11" column="0">
+                 <widget class="QLabel" name="sweep3dpSliceDirLabel7">
+                  <property name="text">
+                   <string>Slice 7 (in deg)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="11" column="1">
+                 <widget class="QDoubleSpinBox" name="sweep3dpSliceDir7">
+<property name="minimum">
+                   <double>-360.000000000000000</double>
+                  </property>
+                  <property name="maximum">
+                   <double>360.000000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>0.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="12" column="0">
+                 <widget class="QLabel" name="sweep3dpSliceDirLabel8">
+                  <property name="text">
+                   <string>Slice 8 (in deg)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="12" column="1">
+                 <widget class="QDoubleSpinBox" name="sweep3dpSliceDir8">
+<property name="minimum">
+                   <double>-360.000000000000000</double>
+                  </property>
+                  <property name="maximum">
+                   <double>360.000000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>90.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <spacer name="spacer_sweep3dp">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Expanding</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="0">
+    <widget class="QComboBox" name="geometryType">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="maxVisibleItems">
+      <number>16</number>
+     </property>
+     <item>
+      <property name="text">
+       <string notr="true">Box</string>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>:/icons/parametric/Part_Box_Parametric.svg</normaloff>:/icons/parametric/Part_Box_Parametric.svg</iconset>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string notr="true">Cylinder</string>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>:/icons/parametric/Part_Cylinder_Parametric.svg</normaloff>:/icons/parametric/Part_Cylinder_Parametric.svg</iconset>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Custom</string>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>:/icons/create/Part_Primitives.svg</normaloff>:/icons/create/Part_Primitives.svg</iconset>
+      </property>
+     </item>
+    <item>
+     <property name="text">
+      <string>Import CAD or Mesh</string>
+     </property>
+     <property name="icon">
+      <iconset>
+       <normaloff>:/icons/Part_FeatureImport.svg</normaloff>:/icons/Part_FeatureImport.svg</iconset>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Sweep-3DP</string>
+     </property>
+     <property name="icon">
+      <iconset>
+       <normaloff>:/icons/PartDesign_AdditivePipe.svg</normaloff>:/icons/PartDesign_AdditivePipe.svg</iconset>
+     </property>
+    </item>
+   </widget>
+  </item>
+ </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>624</width>
+     <height>21</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <layoutdefault spacing="6" margin="11" />
+ <customwidgets>
+  <customwidget>
+   <class>Gui::QuantitySpinBox</class>
+   <extends>QWidget</extends>
+   <header>Gui/QuantitySpinBox.h</header>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>geometryType</tabstop>
+  <tabstop>boxHeight</tabstop>
+  <tabstop>boxWidth</tabstop>
+  <tabstop>boxLength</tabstop>
+  <tabstop>cylinderRadius</tabstop>
+  <tabstop>cylinderHeight</tabstop>
+  </tabstops>
+ <resources />
+ <connections>
+  <connection>
+   <sender>geometryType</sender>
+   <signal>activated(int)</signal>
+   <receiver>widgetStack2</receiver>
+   <slot>setCurrentIndex(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>85</x>
+     <y>50</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>230</x>
+     <y>116</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>sweep3dpProfileType</sender>
+   <signal>activated(int)</signal>
+   <receiver>profileStack</receiver>
+   <slot>setCurrentIndex(int)</slot>
+  </connection>
+  <connection>
+   <sender>sweep3dpPathType</sender>
+   <signal>activated(int)</signal>
+   <receiver>pathStack</receiver>
+   <slot>setCurrentIndex(int)</slot>
+  </connection>
+ </connections>
+</ui>
