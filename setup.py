@@ -1,12 +1,12 @@
 ## ================================================================================
-## CHRONO WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor
+## LDPM WORKBENCH:github.com/Computational-Mechanics-Material-Models/LDPM-preprocessor
 ##
 ## Copyright (c) 2023 
 ## All rights reserved. 
 ##
 ## Use of this source code is governed by a BSD-style license that can be found
 ## in the LICENSE file at the top level of the distribution and at
-## github.com/Concrete-Chrono-Development/chrono-preprocessor/blob/main/LICENSE
+## github.com/Computational-Mechanics-Material-Models/LDPM-preprocessor/blob/main/LICENSE
 ##
 ## ================================================================================
 ## Developed by Northwestern University
@@ -23,17 +23,17 @@ from setuptools import setup
 import os
 
 version_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 
-                            "freecad", "chronoWorkbench", "version.py")
+                            "freecad", "ldpmWorkbench", "version.py")
 with open(version_path) as fp:
     exec(fp.read())
 
-setup(name='freecad.chronoWorkbench',
+setup(name='freecad.ldpmWorkbench',
       version=str(__version__),
       packages=['freecad',
-                'freecad.chronoWorkbench'],
+                'freecad.ldpmWorkbench'],
       maintainer="mtroemner",
       maintainer_email="mtroemner@gmail.com",
       url="TBD",
-      description="Chrono Workbench",
+      description="LDPM Workbench",
       install_requires=['numpy','math','time'], 
       include_package_data=True)

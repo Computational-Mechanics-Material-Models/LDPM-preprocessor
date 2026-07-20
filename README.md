@@ -1,32 +1,32 @@
-# Chrono Preprocessor
+# LDPM Preprocessor
 
-&#x20;[![BSD License](http://www.projectchrono.org/assets/logos/chrono-bsd.svg)](https://github.com/Concrete-Chrono-Development/chrono-concrete/blob/main/LICENSE)
+&#x20;[![BSD License](http://www.projectchrono.org/assets/logos/chrono-bsd.svg)](https://github.com/Computational-Mechanics-Material-Models/LDPM-preprocessor/blob/main/LICENSE)
 
 This is a GitLab repository for the development and implementation of a preprocessor in [FreeCAD ](https://www.freecadweb.org/)for the [Project Chrono](https://www.projectchrono.org) software. The repository and wiki are in development and may be incomplete or include mistakes.
 
-The project wiki is also available [here](https://github.com/Concrete-Chrono-Development/chrono-preprocessor/wiki).
+The project wiki is also available [here](https://github.com/Computational-Mechanics-Material-Models/LDPM-preprocessor/wiki).
 
 ## Installation and Setup
 
 Select below instructions for installation and setup on your local desktop.&#x20;
 
-> #### [Installation Instructions](https://github.com/Concrete-Chrono-Development/chrono-preprocessor/wiki/Installation)
+> #### [Installation Instructions](https://github.com/Computational-Mechanics-Material-Models/LDPM-preprocessor/wiki/Installation)
 
 ## Output
 
-Page for details on output files: [Output Files](https://github.com/Concrete-Chrono-Development/chrono-preprocessor/wiki/Output-Files)
+Page for details on output files: [Output Files](https://github.com/Computational-Mechanics-Material-Models/LDPM-preprocessor/wiki/Output-Files)
 
 ## Questions
 
 All questions and feature requests should be directed to the Discussions at the top of the Repository.
 
-> #### [Discussions](https://github.com/Concrete-Chrono-Development/chrono-preprocessor/discussions)
+> #### [Discussions](https://github.com/Computational-Mechanics-Material-Models/LDPM-preprocessor/discussions)
 
 ## Issues and Bugs
 
 All found issues and bugs should be directed to the Issues at the top of the Repository.
 
-> #### [Issues](https://github.com/Concrete-Chrono-Development/chrono-preprocessor/issues)
+> #### [Issues](https://github.com/Computational-Mechanics-Material-Models/LDPM-preprocessor/issues)
 
 ## License
 
