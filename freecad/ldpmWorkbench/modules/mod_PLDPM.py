@@ -258,8 +258,9 @@ class inputWindow_PLDPM:
 
     def getStandardButtons(self):
 
-        # Only show a close button
-        return int(QtWidgets.QDialogButtonBox.Close)
+        # Only show a close button (PySide2 int vs PySide6 enum)
+        btn = QtWidgets.QDialogButtonBox.Close
+        return btn.value if hasattr(btn, "value") else int(btn)
 
     def selectGeometry(self):
             
@@ -1285,8 +1286,7 @@ class input_PLDPM_Class():
         return
 
     def IsActive(self):
-        """Here you can define if the command must be active or not (greyed) if certain conditions
-        are met or not. This function is optional."""
+
         return True
 
 Gui.addCommand("mod_PLDPM", input_PLDPM_Class())
