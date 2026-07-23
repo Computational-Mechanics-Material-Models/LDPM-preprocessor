@@ -252,8 +252,9 @@ class genWindow_LDPMCSL:
 
     def getStandardButtons(self):
 
-        # Close button only
-        return int(QtWidgets.QDialogButtonBox.Close)
+        # Close button only (PySide2 int vs PySide6 enum)
+        btn = QtWidgets.QDialogButtonBox.Close
+        return btn.value if hasattr(btn, "value") else int(btn)
 
 
 
@@ -520,8 +521,7 @@ class gen_LDPMCSL_Class():
         return
 
     def IsActive(self):
-        """Here you can define if the command must be active or not (greyed) if certain conditions
-        are met or not. This function is optional."""
+
         return True
 
 Gui.addCommand("mod_LDPMCSL_gen", gen_LDPMCSL_Class())
