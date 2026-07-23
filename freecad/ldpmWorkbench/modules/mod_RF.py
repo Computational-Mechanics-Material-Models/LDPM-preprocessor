@@ -71,7 +71,9 @@ class inputWindow_RF:
 
     def getStandardButtons(self):
 
-        return int(QtWidgets.QDialogButtonBox.Close)
+        # PySide2 int vs PySide6 enum
+        btn = QtWidgets.QDialogButtonBox.Close
+        return btn.value if hasattr(btn, "value") else int(btn)
 
     def openRFFieldDir(self):
 
