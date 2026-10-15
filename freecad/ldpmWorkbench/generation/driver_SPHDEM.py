@@ -25,6 +25,7 @@
 import os
 import re
 import shutil
+import sys
 import time
 import tempfile
 import numpy as np
@@ -67,12 +68,12 @@ from freecad.ldpmWorkbench.generation.calc_parVolume                    import c
 from freecad.ldpmWorkbench.generation.calc_sieveCurve                   import calc_sieveCurve
 from freecad.ldpmWorkbench.generation.calc_LDPMCSL_surfMeshSize         import calc_LDPMCSL_surfMeshSize
 from freecad.ldpmWorkbench.generation.calc_LDPMCSL_surfMeshExtents      import calc_LDPMCSL_surfMeshExtents
-from freecad.ldpmWorkbench.generation.check_particleOverlapMPI          import check_particleOverlapMPI
+from freecad.ldpmWorkbench.generation.check_particleOverlapparallel     import check_particleOverlapparallel
 from freecad.ldpmWorkbench.generation.gen_LDPMCSL_analysis              import gen_LDPMCSL_analysis
 from freecad.ldpmWorkbench.generation.gen_LDPMCSL_geometry              import gen_LDPMCSL_geometry
 from freecad.ldpmWorkbench.generation.gen_LDPMCSL_initialMesh           import gen_LDPMCSL_initialMesh
 from freecad.ldpmWorkbench.generation.gen_particle                      import gen_particle
-from freecad.ldpmWorkbench.generation.gen_particleMPI                   import gen_particleMPI
+from freecad.ldpmWorkbench.generation.gen_particleparallel              import gen_particleparallel
 from freecad.ldpmWorkbench.generation.gen_particleList                  import gen_particleList
 
 # Importing: input
@@ -125,25 +126,6 @@ def driver_SPHDEM(self,fastGen,tempPath):
     try:
         sieveCurveDiameter = ast.literal_eval(sieveCurveDiameter)
         sieveCurvePassing = ast.literal_eval(sieveCurvePassing)
-    except:
-        pass
-
-    try:
-        grainAggSieveD = ast.literal_eval(grainAggSieveD)
-        grainAggSieveP = ast.literal_eval(grainAggSieveP)
-    except:
-        pass
-
-    try:
-        grainITZSieveD = ast.literal_eval(grainITZSieveD)
-        grainITZSieveP = ast.literal_eval(grainITZSieveP)
-    except:
-        pass
-
-
-    try:
-        grainBinderSieveD = ast.literal_eval(grainBinderSieveD)
-        grainBinderSieveP = ast.literal_eval(grainBinderSieveP)
     except:
         pass
 
@@ -274,7 +256,7 @@ def driver_SPHDEM(self,fastGen,tempPath):
 
 
 
-    if fastGen == True:
+    if fastGen is True or fastGen == "external":
 
         ########################## Alternative Route to Farm Out Particle Processes ##############################
 
@@ -295,10 +277,11 @@ def driver_SPHDEM(self,fastGen,tempPath):
         currentDir = os.path.dirname(os.path.realpath(__file__))
 
 
-        with open(Path(currentDir + "/tempGen.py"), "w") as f:
+        scriptPath = Path(tempPath) / "run_external_sphdem.py"
+        with open(scriptPath, "w") as f:
             f.write("""\n
 # ================================================================================
-# LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor
+# LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor
 #     
 # ================================================================================
 # LDPM Workbench Parameter File
@@ -308,10 +291,14 @@ def driver_SPHDEM(self,fastGen,tempPath):
 #
 # ================================================================================
 
-from gen_SPHDEM_multiStep   import gen_SPHDEM_multiStep                     
+import sys
+from pathlib import Path
+sys.path.insert(0, """ + repr(currentDir) + """)
+from gen_SPHDEM_multiStep import gen_SPHDEM_multiStep
+
+tempPath = str(Path(__file__).resolve().parent) + "/"
                     
             \n\n""")
-            f.write('tempPath = r"' + tempPath + '"\n')
             f.write('numCPU = ' + str(numCPU) + "\n")
             f.write('numIncrements = ' + str(numIncrements) + "\n")
             f.write('maxIter = ' + str(maxIter) + "\n")
@@ -364,8 +351,20 @@ if __name__ == '__main__':
 
         
        
-        # Run the generation   
-        os.system("python " + str(Path(currentDir + "/tempGen.py")))
+        if fastGen == "external":
+            self.form[4].statusWindow.setText("Status: External package written.")
+            self.form[4].progressBar.setValue(100)
+            packageName = "/" + geoName + "External000"
+            packageIndex = 0
+            while os.path.isdir(Path(outDir + packageName)):
+                packageIndex = packageIndex + 1
+                packageName = "/" + geoName + "External" + str(packageIndex).zfill(3)
+            shutil.move(tempPath, outDir + packageName)
+            print("External package written to: " + str(Path(outDir + packageName)))
+            return
+
+        # Run particle placement outside the current session, then continue with the saved particles.
+        os.system('"' + sys.executable + '" "' + str(scriptPath) + '"')
 
         # Read the temporary internalNodes file
         internalNodes = np.load(tempPath + "internalNodes.npy")
@@ -382,9 +381,6 @@ if __name__ == '__main__':
 
         # Read the volFracPar file
         volFracPar = np.load(tempPath + "volFracPar.npy")
-
-        # Remove the temporary files
-        os.remove(Path(currentDir + "/tempGen.py"))
 
         # Remove the temporary data files
         os.remove(tempPath + "internalNodes.npy")
@@ -473,7 +469,7 @@ if __name__ == '__main__':
 
                 process_pool = multiprocessing.Pool(numCPU)
 
-                outputMPI = process_pool.map(functools.partial(gen_particleMPI, surfaceNodes,maxParNum, minC, maxC, meshVertices, \
+                outputMPI = process_pool.map(functools.partial(gen_particleparallel, surfaceNodes,maxParNum, minC, maxC, meshVertices, \
                     meshTets, coord1,coord2,coord3,coord4,newMaxIter,maxIter,minPar,\
                     maxPar,parOffset,verbose,parDiameterList,maxEdgeLength,max_dist,internalNodes), parDiameterList[particlesPlaced:particlesPlaced+math.floor(len(parDiameterList)/numIncrements)])
 
@@ -500,7 +496,7 @@ if __name__ == '__main__':
                     # Check if particle overlapping any just added particles (ignore first one placed)
                     if x > 0:
 
-                        overlap = check_particleOverlapMPI(nodeMPI[x,:],diameter[x],binMin,\
+                        overlap = check_particleOverlapparallel(nodeMPI[x,:],diameter[x],binMin,\
                             binMax,minPar,parOffset,nodeMPI[0:x],diameter[0:x])
 
                         if overlap == True:
@@ -626,14 +622,18 @@ if __name__ == '__main__':
         geoTypeOutName = geoType
     elif geoType == "Truncated Cone":
         geoTypeOutName = "TruncatedCone"
+    elif geoType == "Arbitrary Prism":
+        geoTypeOutName = "ArbitraryPrism"
     elif geoType == "Notched Prism - Semi Circle":
         geoTypeOutName = "NotchedPrismSemiCircle"
     elif geoType == "Notched Prism - Square":
         geoTypeOutName = "NotchedPrismSquare"
     elif geoType == "Notched Prism - Ellipse":
         geoTypeOutName = "NotchedPrismEllipse"
-    elif geoType == "Import CAD or Mesh":
+    elif geoType in ("Import CAD or Mesh", "Import CAD"):
         geoTypeOutName = "ImportedFile"
+    else:
+        geoTypeOutName = geoType.replace(" ", "")
 
     outName = '/' + geoName + geoTypeOutName + str(i).zfill(3)
     while os.path.isdir(Path(outDir + outName)):

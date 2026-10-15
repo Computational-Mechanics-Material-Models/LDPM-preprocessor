@@ -91,16 +91,19 @@ def gen_LDPMCSL_tetrahedralization(internalNodes,surfaceNodes,surfaceFaces,geoNa
         + str(Path(tempPath + geoName + '2D.mesh'))
     os.system(tetgenCommand)
 
-    # Check if Tetgen ran by trying to rename the output VTK
-    try:
-        os.replace(
-            Path(tempPath + geoName + '2D.1.vtk'),
-            Path(tempPath + geoName + '-para-mesh.vtk'),
-        )
-    except Exception:
+    ele_src = Path(tempPath + geoName + '2D.1.ele')
+    node_src = Path(tempPath + geoName + '2D.1.node')
+    edge_src = Path(tempPath + geoName + '2D.1.edge')
+    vtk_src = Path(tempPath + geoName + '2D.1.vtk')
+    if not ele_src.is_file() or not node_src.is_file() or not edge_src.is_file():
         print("Tetgen failed during tetrahedralization.")
         print("If this issue persists, you may need to use another geometry or particle distribution.")
-        raise
+        raise FileNotFoundError(
+            "Tetgen did not produce required mesh files (.ele/.node/.edge)."
+        )
+
+    if vtk_src.is_file():
+        os.replace(vtk_src, Path(tempPath + geoName + '-para-mesh.vtk'))
 
     try:
         os.remove(Path(tempPath + geoName + '2D.1.face'))
@@ -111,6 +114,6 @@ def gen_LDPMCSL_tetrahedralization(internalNodes,surfaceNodes,surfaceFaces,geoNa
     except OSError:
         pass
 
-    os.replace(Path(tempPath + geoName + '2D.1.ele'), Path(tempPath + geoName + '.ele'))
-    os.replace(Path(tempPath + geoName + '2D.1.node'), Path(tempPath + geoName + '.node'))
-    os.replace(Path(tempPath + geoName + '2D.1.edge'), Path(tempPath + geoName + '.edge'))
+    os.replace(ele_src, Path(tempPath + geoName + '.ele'))
+    os.replace(node_src, Path(tempPath + geoName + '.node'))
+    os.replace(edge_src, Path(tempPath + geoName + '.edge'))

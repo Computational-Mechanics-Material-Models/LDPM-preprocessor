@@ -21,11 +21,158 @@
 
 
 import numpy as np
-from freecad.ldpmWorkbench.generation.gen_LDPMCSL_orientationPath import get_zone_from_point
+from freecad.ldpmWorkbench.generation.gen_3DCP_interlayer import fiber_crosses_interface
+from freecad.ldpmWorkbench.generation.gen_LDPMCSL_orientationPath import (
+    fiber_inside_layer_boxes,
+    get_zone_from_point,
+    group_raster_segments_by_layer,
+    is_raster_path_segments,
+    sample_point_in_oriented_box,
+)
+
+_raster_fiber_layer_i = 0
+
+
+def _perturb_tangent(segment_tangent, orientationStrength):
+    strength = (6 ** (4 - 4 * orientationStrength) - 1) / 200
+    v = np.empty(2)
+    j = 0
+    while j < 2:
+        y = np.random.normal(0, strength, 1)
+        if y > -1 and y < 1:
+            v[j] = y
+            j = j + 1
+
+    orienFiber1 = segment_tangent.copy() / np.linalg.norm(segment_tangent)
+    orienFiber2 = np.array(
+        (
+            1,
+            np.arctan2(orienFiber1[1], orienFiber1[0]),
+            np.arccos(
+                orienFiber1[2]
+                / (orienFiber1[0] ** 2 + orienFiber1[1] ** 2 + orienFiber1[2] ** 2) ** 0.5
+            ),
+        )
+    )
+    orienFiber3 = np.array((1, orienFiber2[1] + np.pi * v[0], orienFiber2[2] + np.pi / 2 * v[1]))
+    orienFiber = np.array(
+        (
+            np.sin(orienFiber3[2]) * np.cos(orienFiber3[1]),
+            np.sin(orienFiber3[2]) * np.sin(orienFiber3[1]),
+            np.cos(orienFiber3[2]),
+        )
+    )
+
+    if orientationStrength < 1.0:
+        if np.random.rand(1) < 0.5:
+            orienFiber = -orienFiber
+    return orienFiber / np.linalg.norm(orienFiber)
+
+
+def _place_raster_bbox_fiber(
+    vertices,
+    tets,
+    tets_min,
+    tets_max,
+    tets_min_global,
+    tets_max_global,
+    maxIter,
+    lFiber,
+    orientationStrength,
+    triangles,
+    cutFiber,
+    pathSegments,
+    interfaceRegions,
+    randomN1,
+    randomN2,
+):
+    global _raster_fiber_layer_i
+
+    layers = group_raster_segments_by_layer(pathSegments)
+    layer_keys = sorted(layers.keys())
+    if not layer_keys:
+        raise RuntimeError("Raster fiber placement failed: no layered path segments.")
+
+    iterReq = 0
+    fiber_len = float(lFiber)
+
+    while True:
+        iterReq = iterReq + 3
+        if iterReq >= len(randomN1):
+            error_msg = (
+                "Fiber placement failed: exceeded the %r specified maximum iterations allowed."
+                % (maxIter)
+            )
+            print(error_msg)
+            raise RuntimeError(error_msg)
+
+        layer_key = layer_keys[_raster_fiber_layer_i % len(layer_keys)]
+        _raster_fiber_layer_i += 1
+        layer_segs = layers[layer_key]
+        seg = layer_segs[int(randomN1[iterReq] * len(layer_segs)) % len(layer_segs)]
+        p1Fiber = sample_point_in_oriented_box(seg)
+
+        if np.any(p1Fiber < tets_min_global) or np.any(p1Fiber > tets_max_global):
+            continue
+        if not point_in_any_tet(p1Fiber, vertices, tets, tets_min, tets_max):
+            continue
+
+        _zone_id, segment_tangent = get_zone_from_point(p1Fiber, layer_segs)
+        if segment_tangent is None:
+            continue
+        tangent = np.asarray(segment_tangent, dtype=float)
+        tn = np.linalg.norm(tangent)
+        if tn < 1e-12:
+            continue
+        tangent = tangent / tn
+
+        orienFiber = _perturb_tangent(tangent, orientationStrength)
+        p2Fiber = p1Fiber + orienFiber * fiber_len
+
+        if not fiber_inside_layer_boxes(p1Fiber, p2Fiber, layer_segs):
+            continue
+        if interfaceRegions and fiber_crosses_interface(p1Fiber, p2Fiber, interfaceRegions):
+            continue
+        if point_in_any_tet(p2Fiber, vertices, tets, tets_min, tets_max):
+            return p1Fiber, p2Fiber, orienFiber, fiber_len
+
+        if cutFiber not in ["on", "On", "Y", "y", "Yes", "yes"]:
+            continue
+        if triangles is None or len(triangles) == 0:
+            continue
+
+        triangles = np.asarray(triangles).astype(int)
+        coords0 = vertices[triangles[:, 0] - 1]
+        coords1 = vertices[triangles[:, 1] - 1]
+        coords2 = vertices[triangles[:, 2] - 1]
+        averageTriangles = (coords0 + coords1 + coords2) / 3
+        nearest = np.argmin(np.linalg.norm(averageTriangles - p2Fiber, axis=1))
+        p0 = coords0[nearest]
+        p1 = coords1[nearest]
+        p2 = coords2[nearest]
+        p01 = p1 - p0
+        p02 = p2 - p0
+        fiberVector = p2Fiber - p1Fiber
+        denom = np.dot(-fiberVector, np.cross(p01, p02))
+        if abs(denom) < 1e-14:
+            continue
+        t = np.dot(np.cross(p01, p02), (p1Fiber - p0)) / denom
+        if t <= 0.0 or t >= 1.0:
+            continue
+        p2Cut = p1Fiber + fiberVector * t
+        cutLen = float(np.linalg.norm(p2Cut - p1Fiber))
+        if cutLen >= fiber_len - 1e-9 or cutLen < 1e-6:
+            continue
+        if not fiber_inside_layer_boxes(p1Fiber, p2Cut, layer_segs):
+            continue
+        if not point_in_any_tet(p2Cut, vertices, tets, tets_min, tets_max):
+            continue
+        return p1Fiber, p2Cut, orienFiber, cutLen
+
 
 def gen_LDPMCSL_fibers(vertices,tets,coord1,coord2,coord3,coord4,maxIter,\
     lFiber,maxC,maxAggD,fiberOrientation,orientationStrength,triangles,\
-    cutFiber,pathSegments=None):
+    cutFiber,pathSegments=None,interfaceRegions=None):
 
     """
     Variables:
@@ -67,6 +214,25 @@ def gen_LDPMCSL_fibers(vertices,tets,coord1,coord2,coord3,coord4,maxIter,\
     
     tets_min_global = np.min(vertices[tets - 1], axis=(0, 1))
     tets_max_global = np.max(vertices[tets - 1], axis=(0, 1))
+
+    if is_raster_path_segments(pathSegments):
+        return _place_raster_bbox_fiber(
+            vertices,
+            tets,
+            tets_min,
+            tets_max,
+            tets_min_global,
+            tets_max_global,
+            maxIter,
+            lFiber,
+            orientationStrength,
+            triangles,
+            cutFiber,
+            pathSegments,
+            interfaceRegions,
+            randomN1,
+            randomN2,
+        )
     
     orienFiber_cached = None
     
@@ -111,29 +277,7 @@ def gen_LDPMCSL_fibers(vertices,tets,coord1,coord2,coord3,coord4,maxIter,\
             zone_id, segment_tangent = get_zone_from_point(p1Fiber, pathSegments)
             
             if zone_id is not None and segment_tangent is not None:
-                strength = (6**(4-4*orientationStrength)-1)/200
-                v = np.empty(2)
-                j = 0
-                while j < 2:
-                    y = np.random.normal(0, strength, 1)
-                    if y > -1 and y < 1:
-                        v[j] = y
-                        j = j+1
-                
-                orienFiber1 = segment_tangent.copy() / np.linalg.norm(segment_tangent)
-                orienFiber2 = np.array((1,np.arctan2(orienFiber1[1],orienFiber1[0]),np.arccos(orienFiber1[2]/(orienFiber1[0]**2+orienFiber1[1]**2+orienFiber1[2]**2)**0.5)))
-                orienFiber3 = np.array((1,orienFiber2[1]+np.pi*v[0],orienFiber2[2]+np.pi/2*v[1]))
-                orienFiber = np.array((np.sin(orienFiber3[2])*np.cos(orienFiber3[1]),np.sin(orienFiber3[2])*np.sin(orienFiber3[1]),np.cos(orienFiber3[2])))
-                
-                if orientationStrength < 1.0:
-                    randSign = np.random.rand(1)
-                    if randSign<0.5:
-                        sign = -1
-                    else:
-                        sign = 1
-                    orienFiber = sign*orienFiber
-                
-                orienFiber_cached = orienFiber
+                orienFiber_cached = _perturb_tangent(segment_tangent, orientationStrength)
             else:
                 continue
         else:
@@ -170,18 +314,11 @@ def gen_LDPMCSL_fibers(vertices,tets,coord1,coord2,coord3,coord4,maxIter,\
             orienFiber = orienFiber_cached
         
         p2Fiber = p1Fiber+orienFiber*lFiber
-        
-        # p1Fiber = pCFiber - 0.5 * lFiber * orienFiber
-        # p2Fiber = pCFiber + 0.5 * lFiber * orienFiber
 
-        # Obtain extents for floating bin
-        # binMin = np.amin(np.vstack((p1Fiber,p2Fiber)), axis=0)-maxAggD-lFiber
-        # binMax = np.amax(np.vstack((p1Fiber,p2Fiber)), axis=0)+maxAggD+lFiber
+        if interfaceRegions and fiber_crosses_interface(p1Fiber, p2Fiber, interfaceRegions):
+            continue
 
-        # Check if fiber is inside the mesh    
         inside = False     
-        # inside = insideCheckFiber(vertices,tets,p1Fiber,p2Fiber,\
-        #     binMin,binMax,coord1,coord2,coord3,coord4,maxC)
         inside = point_in_any_tet(p2Fiber, vertices, tets, tets_min, tets_max)
 
         # Indicate placed fiber and break While Loop

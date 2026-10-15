@@ -16,6 +16,7 @@
 ## ===========================================================================
 
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -47,21 +48,30 @@ def _validate_segments(segments):
     return segments
 
 
-def read_orientationPath_sweep3dp(orientationPathType, orientationPathSketchName, geometryPathParams, numSegments):
+def read_orientationPath_sweep3dp(orientationPathType, orientationPathSketchName, geometryPathParams, segmentLength):
     
     try:
         if orientationPathType == 0:
-            segments = _discretize_line_path(geometryPathParams, numSegments)
+            segments = _discretize_line_path(geometryPathParams, segmentLength)
         elif orientationPathType == 1:
-            segments = _discretize_square_path(geometryPathParams, numSegments)
+            segments = _discretize_square_path(geometryPathParams, segmentLength)
         elif orientationPathType == 2:
-            segments = _discretize_sketch_path(orientationPathSketchName, numSegments)
+            segments = _discretize_sketch_path(orientationPathSketchName, segmentLength)
+        elif orientationPathType == 3:
+            segments = _discretize_raster_path(geometryPathParams, segmentLength)
+        elif orientationPathType == 6:
+            segments = _discretize_circular_path(geometryPathParams, segmentLength)
         else:
             segments = np.array([])
         
         if len(segments) > 0:
             segments = _validate_segments(segments)
-            segments = _compute_segment_bboxes(segments)
+            if orientationPathType in (3, 6):
+                half_w = 0.5 * float(geometryPathParams["eff_w"])
+                half_h = 0.5 * float(geometryPathParams["eff_h"])
+                segments = _compute_raster_segment_bboxes(segments, half_w, half_h)
+            else:
+                segments = _compute_segment_bboxes(segments)
         try:
             import tempfile
             import os
@@ -137,6 +147,88 @@ def _compute_segment_bboxes(segments):
     return segments
 
 
+def _raster_axes(start, end):
+    start = np.asarray(start, dtype=float)
+    end = np.asarray(end, dtype=float)
+    d = end - start
+    ln = float(np.linalg.norm(d))
+    if ln < 1e-12:
+        t = np.array([1.0, 0.0, 0.0])
+        ln = 0.0
+    else:
+        t = d / ln
+    n = np.array([-t[1], t[0], 0.0])
+    nn = float(np.linalg.norm(n))
+    if nn < 1e-12:
+        n = np.array([0.0, 1.0, 0.0])
+    else:
+        n = n / nn
+    return start, t, n, ln
+
+
+def _point_in_oriented_box(p, seg):
+    start, t, n, ln = _raster_axes(seg["start"], seg["end"])
+    half_w = float(seg["half_w"])
+    half_h = float(seg["half_h"])
+    d = np.asarray(p, dtype=float) - start
+    u = float(np.dot(d, t))
+    v = float(np.dot(d, n))
+    w = float(d[2])
+    return (
+        -1e-6 <= u <= ln + 1e-6
+        and abs(v) <= half_w + 1e-8
+        and abs(w) <= half_h + 1e-8
+    )
+
+
+def fiber_inside_layer_boxes(p1, p2, layer_segs):
+    if not layer_segs:
+        return False
+    p1 = np.asarray(p1, dtype=float)
+    p2 = np.asarray(p2, dtype=float)
+    span = float(np.linalg.norm(p2 - p1))
+    step = max(0.5 * float(layer_segs[0]["half_w"]), 1e-3)
+    n = max(2, int(math.ceil(span / step)) + 1)
+    for i in range(n):
+        a = i / float(n - 1)
+        p = (1.0 - a) * p1 + a * p2
+        if not any(_point_in_oriented_box(p, seg) for seg in layer_segs):
+            return False
+    return True
+
+
+def sample_point_in_oriented_box(seg):
+    start, t, n, ln = _raster_axes(seg["start"], seg["end"])
+    u = float(np.random.rand()) * ln
+    v = (float(np.random.rand()) * 2.0 - 1.0) * float(seg["half_w"])
+    w = (float(np.random.rand()) * 2.0 - 1.0) * float(seg["half_h"])
+    return start + t * u + n * v + np.array([0.0, 0.0, w])
+
+
+def _compute_raster_segment_bboxes(segments, half_w, half_h):
+    if len(segments) == 0:
+        return segments
+    margin_xy = max(1e-9, float(half_w))
+    margin_z = max(1e-9, float(half_h))
+    up = np.array([0.0, 0.0, 1.0])
+    for seg in segments:
+        start, t, n, ln = _raster_axes(seg["start"], seg["end"])
+        corners = []
+        for s in (0.0, ln):
+            c = start + t * s
+            for sn in (-margin_xy, margin_xy):
+                for sz in (-margin_z, margin_z):
+                    corners.append(c + n * sn + up * sz)
+        corners = np.vstack(corners)
+        seg["bbox_min"] = np.min(corners, axis=0)
+        seg["bbox_max"] = np.max(corners, axis=0)
+        seg["half_w"] = margin_xy
+        seg["half_h"] = margin_z
+        seg["axis_t"] = t
+        seg["axis_n"] = n
+    return segments
+
+
 def _distance_point_to_segment(p, start, end, center):
     p = np.asarray(p, dtype=float)
     start = np.asarray(start, dtype=float)
@@ -166,16 +258,97 @@ def _distance_point_to_segment(p, start, end, center):
         return dist_chord
 
 
+def _point_in_segment_bbox(p, seg):
+    if "half_w" in seg and "half_h" in seg:
+        return _point_in_oriented_box(p, seg)
+    if "bbox_min" not in seg or "bbox_max" not in seg:
+        return True
+    bmin = np.asarray(seg["bbox_min"], dtype=float)
+    bmax = np.asarray(seg["bbox_max"], dtype=float)
+    return bool(
+        bmin[0] <= p[0] <= bmax[0]
+        and bmin[1] <= p[1] <= bmax[1]
+        and bmin[2] <= p[2] <= bmax[2]
+    )
+
+
+def _point_in_segment_z(p, seg):
+    if "bbox_min" not in seg or "bbox_max" not in seg:
+        return True
+    bmin = np.asarray(seg["bbox_min"], dtype=float)
+    bmax = np.asarray(seg["bbox_max"], dtype=float)
+    return bool(bmin[2] <= p[2] <= bmax[2])
+
+
+def is_raster_path_segments(pathSegments):
+    if pathSegments is None or len(pathSegments) == 0:
+        return False
+    return any("half_w" in seg for seg in pathSegments)
+
+
+def group_raster_segments_by_layer(pathSegments):
+    layers = {}
+    for seg in pathSegments:
+        z_key = round(float(np.asarray(seg["center"], dtype=float)[2]), 6)
+        layers.setdefault(z_key, []).append(seg)
+    return layers
+
+
+def max_ray_length_in_bbox(p, direction, bmin, bmax):
+    p = np.asarray(p, dtype=float)
+    d = np.asarray(direction, dtype=float)
+    bmin = np.asarray(bmin, dtype=float)
+    bmax = np.asarray(bmax, dtype=float)
+    if not (
+        bmin[0] <= p[0] <= bmax[0]
+        and bmin[1] <= p[1] <= bmax[1]
+        and bmin[2] <= p[2] <= bmax[2]
+    ):
+        return 0.0
+    t_exit = np.inf
+    for i in range(3):
+        if d[i] > 1e-14:
+            t_exit = min(t_exit, (bmax[i] - p[i]) / d[i])
+        elif d[i] < -1e-14:
+            t_exit = min(t_exit, (bmin[i] - p[i]) / d[i])
+        elif p[i] < bmin[i] - 1e-12 or p[i] > bmax[i] + 1e-12:
+            return 0.0
+    if not np.isfinite(t_exit) or t_exit <= 0.0:
+        return 0.0
+    return float(t_exit)
+
+
+def sample_point_in_bbox(bmin, bmax):
+    bmin = np.asarray(bmin, dtype=float)
+    bmax = np.asarray(bmax, dtype=float)
+    u = np.random.rand(3)
+    return bmin + u * (bmax - bmin)
+
+
 def get_zone_from_point(p1Fiber, pathSegments):
     if pathSegments is None or len(pathSegments) == 0:
         return None, None
     
     p1Fiber = np.asarray(p1Fiber, dtype=float)
-    
-    distances = np.array([
-        _distance_point_to_segment(p1Fiber, seg['start'], seg['end'], seg['center'])
-        for seg in pathSegments
-    ])
+    n = len(pathSegments)
+
+    use_raster_bbox = is_raster_path_segments(pathSegments)
+    if use_raster_bbox:
+        in_bbox = [i for i in range(n) if _point_in_segment_bbox(p1Fiber, pathSegments[i])]
+        if not in_bbox:
+            return None, None
+        pool = in_bbox
+        distances = np.full(n, np.inf, dtype=float)
+        for i in pool:
+            seg = pathSegments[i]
+            distances[i] = _distance_point_to_segment(
+                p1Fiber, seg["start"], seg["end"], seg["center"]
+            )
+    else:
+        distances = np.array([
+            _distance_point_to_segment(p1Fiber, seg['start'], seg['end'], seg['center'])
+            for seg in pathSegments
+        ])
     
     if not np.any(np.isfinite(distances)):
         return pathSegments[0]['id'], pathSegments[0]['tangent']
@@ -198,8 +371,14 @@ def get_zone_from_point(p1Fiber, pathSegments):
     return pathSegments[nearest_idx]['id'], pathSegments[nearest_idx]['tangent']
 
 
-def _discretize_line_path(params, numSegments):
-    distance = params['distance']
+def _segment_count_from_length(total_len, segment_length):
+    sl = max(1e-9, float(segment_length))
+    return max(1, int(math.ceil(max(0.0, float(total_len)) / sl - 1e-12)))
+
+
+def _discretize_line_path(params, segment_length):
+    distance = float(params['distance'])
+    numSegments = _segment_count_from_length(distance, segment_length)
     segments = []
     
     for i in range(numSegments):
@@ -225,8 +404,123 @@ def _discretize_line_path(params, numSegments):
     return np.array(segments)
 
 
-def _discretize_square_path(params, numSegments):
-    side = params['side']
+def _discretize_raster_path(params, segment_length):
+    from freecad.ldpmWorkbench.generation.gen_LDPMCSL_geometry import raster_qi_centerline
+
+    total_length = float(params["total_length"])
+    spacing = max(1e-6, float(params["spacing"]))
+    eff_w = max(1e-6, float(params["eff_w"]))
+    eff_h = max(1e-6, float(params["eff_h"]))
+    num_lines = max(1, int(params["num_lines"]))
+    num_layers = max(1, int(params["num_layers"]))
+    dirs = list(params.get("dirs", []))
+    if spacing < eff_w:
+        spacing = eff_w
+    if total_length <= 2.0 * eff_w:
+        total_length = 2.0 * eff_w + 1.0
+
+    step = max(1e-9, float(segment_length))
+    segments = []
+    seg_id = 0
+
+    for layer_idx in range(num_layers):
+        overlap = min(0.05, max(1e-3, eff_h * 0.01))
+        z_step = eff_h - overlap if num_layers > 1 else eff_h
+        z_offset = layer_idx * z_step + (eff_h / 2.0)
+        if layer_idx < len(dirs):
+            angle_deg = float(dirs[layer_idx])
+        else:
+            angle_deg = 0.0 if layer_idx % 2 == 0 else 90.0
+
+        pts, _dom, _segs, _hops, _cdom, _nn = raster_qi_centerline(
+            total_length, spacing, eff_w, num_lines, angle_deg, detail=True)
+
+        edges = []
+        for i in range(len(pts) - 1):
+            x0, y0 = pts[i]
+            x1, y1 = pts[i + 1]
+            ln = math.hypot(x1 - x0, y1 - y0)
+            if ln > 1e-9:
+                edges.append((x0, y0, x1, y1, ln))
+        if not edges:
+            continue
+
+        for x0, y0, x1, y1, ln in edges:
+            n = _segment_count_from_length(ln, step)
+            for k in range(n):
+                t0 = k / float(n)
+                t1 = (k + 1) / float(n)
+                sx = x0 + t0 * (x1 - x0)
+                sy = y0 + t0 * (y1 - y0)
+                ex = x0 + t1 * (x1 - x0)
+                ey = y0 + t1 * (y1 - y0)
+                p0 = np.array([sx, sy, z_offset], dtype=float)
+                p1 = np.array([ex, ey, z_offset], dtype=float)
+                d = p1 - p0
+                length = float(np.linalg.norm(d))
+                if length < 1e-12:
+                    continue
+                tangent = d / length
+                center = 0.5 * (p0 + p1)
+                segments.append({
+                    "id": seg_id,
+                    "start": p0,
+                    "end": p1,
+                    "tangent": tangent,
+                    "length": length,
+                    "center": center,
+                })
+                seg_id += 1
+
+    return np.array(segments)
+
+
+def _discretize_circular_path(params, segment_length):
+    from freecad.ldpmWorkbench.generation.gen_LDPMCSL_geometry import circular_path_span, circular_seam_angles
+
+    diameter = float(params["diameter"])
+    radius = diameter / 2.0
+    eff_w = max(1e-6, float(params["eff_w"]))
+    eff_h = max(1e-6, float(params["eff_h"]))
+    num_layers = max(1, int(params["num_layers"]))
+    seam_on = bool(params.get("seam_on", False))
+    gap = float(params.get("seam_distance", 0.0) or 0.0)
+    angles = circular_seam_angles(
+        num_layers, radius, eff_w, params.get("seam_mode", "Aligned"), seam_on
+    )
+    segments = []
+    seg_id = 0
+    for layer_idx in range(num_layers):
+        z_offset = layer_idx * eff_h
+        theta = angles[layer_idx] if layer_idx < len(angles) else 0.0
+        angle0, sweep = circular_path_span(radius, eff_w, gap, theta, seam_on)
+        length = radius * sweep
+        if length <= 1e-9:
+            continue
+        count = _segment_count_from_length(length, segment_length)
+        for k in range(count):
+            a0 = angle0 + sweep * (k / float(count))
+            a1 = angle0 + sweep * ((k + 1) / float(count))
+            p0 = np.array([radius * math.cos(a0), radius * math.sin(a0), z_offset], dtype=float)
+            p1 = np.array([radius * math.cos(a1), radius * math.sin(a1), z_offset], dtype=float)
+            delta = p1 - p0
+            seg_len = float(np.linalg.norm(delta))
+            if seg_len < 1e-12:
+                continue
+            segments.append({
+                "id": seg_id,
+                "start": p0,
+                "end": p1,
+                "tangent": delta / seg_len,
+                "length": seg_len,
+                "center": 0.5 * (p0 + p1),
+            })
+            seg_id += 1
+    return np.array(segments)
+
+
+def _discretize_square_path(params, segment_length):
+    side = float(params['side'])
     segments = []
     seg_id = 0
     
@@ -237,7 +531,7 @@ def _discretize_square_path(params, numSegments):
         (np.array([0, side, 0]), np.array([0, 0, 0]), np.array([0, -1, 0]))
     ]
     
-    segs_per_side = max(1, numSegments // 4)
+    segs_per_side = _segment_count_from_length(side, segment_length)
     
     for start_corner, end_corner, tangent in sides_data:
         for i in range(segs_per_side):
@@ -273,7 +567,7 @@ def _compute_segment_center(edge, param0, param1, p0, p1):
         return np.array([(p0.x + p1.x)/2, (p0.y + p1.y)/2, (p0.z + p1.z)/2])
 
 
-def _discretize_sketch_path(sketchName, numSegments):
+def _discretize_sketch_path(sketchName, segment_length):
     try:
         import FreeCAD as App
     except ImportError:
@@ -305,17 +599,17 @@ def _discretize_sketch_path(sketchName, numSegments):
         
         segments = []
         seg_id = 0
-        total_length = sum(e.Length for e in all_edges)
+        step = max(1e-9, float(segment_length))
         
         for edge in all_edges:
             edge_length = edge.Length
             
             if edge.Curve.TypeId in ['Part::GeomCircle', 'Part::GeomArcOfCircle']:
-                segs_for_edge = max(3, int(numSegments * edge_length / total_length * 1.5))
+                segs_for_edge = max(3, _segment_count_from_length(edge_length, step))
             elif edge.Curve.TypeId in ['Part::GeomEllipse', 'Part::GeomBSplineCurve']:
-                segs_for_edge = max(4, int(numSegments * edge_length / total_length * 2.0))
+                segs_for_edge = max(4, _segment_count_from_length(edge_length, step))
             else:
-                segs_for_edge = max(1, int(numSegments * edge_length / total_length))
+                segs_for_edge = _segment_count_from_length(edge_length, step)
             
             for i in range(segs_for_edge):
                 t0 = i / segs_for_edge
@@ -382,6 +676,16 @@ def _discretize_sketch_path(sketchName, numSegments):
 _VECTOR_KEYS = ("start", "end", "tangent", "center", "bbox_min", "bbox_max")
 
 
+def _dim_float(val, default=None):
+    try:
+        text = str(val).strip()
+        if not text:
+            return default
+        return float(text.split()[0])
+    except Exception:
+        return default
+
+
 def build_sweep3dp_geometry_path_params(orientation_path_type, orientation_path_sketch_name, dimensions):
 
     geometry_path_params = {}
@@ -394,6 +698,73 @@ def build_sweep3dp_geometry_path_params(orientation_path_type, orientation_path_
             geometry_path_params["side"] = float(str(dimensions[7]).strip().split()[0])
     elif orientation_path_type == 2:
         geometry_path_params["sketch"] = orientation_path_sketch_name
+    elif orientation_path_type == 3:
+        try:
+            path_type = int(float(str(dimensions[4]).strip()))
+        except Exception:
+            path_type = -1
+        if path_type != 3:
+            return geometry_path_params
+        eff_w = _dim_float(dimensions[1] if len(dimensions) > 1 else None, None)
+        eff_h = _dim_float(dimensions[2] if len(dimensions) > 2 else None, None)
+        if eff_w is None or eff_h is None:
+            return geometry_path_params
+        num_layers = int(_dim_float(dimensions[10] if len(dimensions) > 10 else 1, 1) or 1)
+        num_layers = max(1, min(8, num_layers))
+        if len(dimensions) > 13 and str(dimensions[13]).strip():
+            num_layers = max(1, min(8, int(_dim_float(dimensions[13], num_layers) or num_layers)))
+        num_lines = int(_dim_float(dimensions[11] if len(dimensions) > 11 else 1, 1) or 1)
+        spacing = _dim_float(dimensions[12] if len(dimensions) > 12 else None, 5.0)
+        dirs = []
+        for i in range(num_layers):
+            idx = 14 + i
+            if len(dimensions) > idx and str(dimensions[idx]).strip():
+                dirs.append(float(str(dimensions[idx]).strip()))
+            else:
+                dirs.append(0.0 if i % 2 == 0 else 90.0)
+        if len(dimensions) >= 24:
+            length_idx = 23
+        else:
+            length_idx = 15 + num_layers
+        total_length = _dim_float(dimensions[length_idx] if len(dimensions) > length_idx else None, None)
+        if total_length is None:
+            total_length = max(spacing * 4.0, spacing * (num_lines + 2))
+        geometry_path_params = {
+            "total_length": float(total_length),
+            "spacing": float(spacing),
+            "eff_w": float(eff_w),
+            "eff_h": float(eff_h),
+            "num_lines": max(1, int(num_lines)),
+            "num_layers": num_layers,
+            "dirs": dirs,
+        }
+    elif orientation_path_type == 6:
+        try:
+            path_type = int(float(str(dimensions[4]).strip()))
+        except Exception:
+            path_type = -1
+        if path_type != 6:
+            return geometry_path_params
+        diameter = _dim_float(dimensions[6] if len(dimensions) > 6 else None, None)
+        eff_w = _dim_float(dimensions[1] if len(dimensions) > 1 else None, None)
+        eff_h = _dim_float(dimensions[2] if len(dimensions) > 2 else None, None)
+        if diameter is None or eff_w is None or eff_h is None or diameter <= eff_w:
+            return geometry_path_params
+        num_layers = int(_dim_float(dimensions[10] if len(dimensions) > 10 else 1, 1) or 1)
+        seam_on = False
+        if len(dimensions) > 11:
+            seam_on = str(dimensions[11]).strip().lower() in ("yes", "y", "on", "true", "1")
+        seam_mode = str(dimensions[12]).strip() if len(dimensions) > 12 and str(dimensions[12]).strip() else "Aligned"
+        seam_distance = _dim_float(dimensions[13] if len(dimensions) > 13 else None, 0.0) or 0.0
+        geometry_path_params = {
+            "diameter": float(diameter),
+            "eff_w": float(eff_w),
+            "eff_h": float(eff_h),
+            "num_layers": max(1, int(num_layers)),
+            "seam_on": seam_on,
+            "seam_mode": seam_mode,
+            "seam_distance": float(seam_distance),
+        }
 
     return geometry_path_params
 
@@ -403,7 +774,7 @@ def build_sweep3dp_path_segments(
     dimensions,
     orientation_path_type,
     orientation_path_sketch_name,
-    num_segments,
+    segment_length,
 ):
 
     if geo_type != "Sweep-3DP" or orientation_path_type < 0:
@@ -421,7 +792,7 @@ def build_sweep3dp_path_segments(
         orientation_path_type,
         orientation_path_sketch_name,
         geometry_path_params,
-        num_segments,
+        segment_length,
     )
     if segments is None or len(segments) == 0:
         return None
@@ -435,6 +806,9 @@ def _segment_to_dict(seg):
         "id": int(seg["id"]),
         "length": float(seg["length"]),
     }
+    for key in ("half_w", "half_h"):
+        if key in seg:
+            out[key] = float(seg[key])
     for key in _VECTOR_KEYS:
         if key in seg:
             out[key] = np.asarray(seg[key], dtype=float).tolist()
@@ -447,6 +821,9 @@ def _dict_to_segment(data):
         "id": int(data["id"]),
         "length": float(data["length"]),
     }
+    for key in ("half_w", "half_h"):
+        if key in data:
+            seg[key] = float(data[key])
     for key in _VECTOR_KEYS:
         if key in data:
             seg[key] = np.asarray(data[key], dtype=float)

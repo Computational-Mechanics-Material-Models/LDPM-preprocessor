@@ -57,8 +57,8 @@ from freecad.ldpmWorkbench.generation.calc_sieveCurve                           
 from freecad.ldpmWorkbench.generation.calc_parVolume                                 import calc_parVolume
 from freecad.ldpmWorkbench.generation.gen_particleList                               import gen_particleList
 from freecad.ldpmWorkbench.generation.gen_LDPMCSL_subParticle                        import gen_LDPMCSL_subParticle
-from freecad.ldpmWorkbench.generation.gen_particleMPI                                import gen_particleMPI
-from freecad.ldpmWorkbench.generation.check_particleOverlapMPI                       import check_particleOverlapMPI
+from freecad.ldpmWorkbench.generation.gen_particleparallel                           import gen_particleparallel
+from freecad.ldpmWorkbench.generation.check_particleOverlapparallel                  import check_particleOverlapparallel
 from freecad.ldpmWorkbench.generation.gen_particle                                   import gen_particle
 from freecad.ldpmWorkbench.generation.gen_LDPMCSL_fibers                             import gen_LDPMCSL_fibers
 
@@ -194,7 +194,7 @@ def gen_multiMat_phase_particle_list(
     )
 
 
-def gen_LDPMCSL_multiStep(tempPath, numCPU, numIncrements, maxIter, parOffset, maxEdgeLength, max_dist, minPar_sim, maxPar_sim,minPar_exp, maxPar_exp, sieveCurveDiameter, sieveCurvePassing, wcRatio, cementC, airFrac, fullerCoef, flyashC, silicaC, scmC, fillerC, flyashDensity, silicaDensity, scmDensity, fillerDensity, cementDensity, densityWater, multiMatToggle, aggFile, multiMatFile, grainAggMin, grainAggMax, grainAggFuller, grainAggSieveD, grainAggSieveP, grainBinderMin, grainBinderMax, grainBinderFuller, grainBinderSieveD, grainBinderSieveP, grainITZMin, grainITZMax, grainITZFuller, grainITZSieveD, grainITZSieveP, tetVolume, minC, maxC, verbose, fiberToggle, fiberFile, fiberDiameter, fiberLength, fiberVol, fiberOrientation1, fiberOrientation2, fiberOrientation3, fiberPref, fiberCutting, fiberIntersections, fiberOutputFiles, surfaceFaces, phaseMode=3, phaseMinPar=None, phaseMaxPar=None, phaseOffsetCoefList=None, phaseFillerContent=None, phaseFillerDensity=None, fillerOnlyPhases=False):
+def gen_LDPMCSL_multiStep(tempPath, numCPU, numIncrements, maxIter, parOffset, maxEdgeLength, max_dist, minPar_sim, maxPar_sim,minPar_exp, maxPar_exp, sieveCurveDiameter, sieveCurvePassing, wcRatio, cementC, airFrac, fullerCoef, flyashC, silicaC, scmC, fillerC, flyashDensity, silicaDensity, scmDensity, fillerDensity, cementDensity, densityWater, multiMatToggle, aggFile, multiMatFile, grainAggMin, grainAggMax, grainAggFuller, grainAggSieveD, grainAggSieveP, grainBinderMin, grainBinderMax, grainBinderFuller, grainBinderSieveD, grainBinderSieveP, grainITZMin, grainITZMax, grainITZFuller, grainITZSieveD, grainITZSieveP, tetVolume, minC, maxC, verbose, fiberToggle, fiberFile, fiberDiameter, fiberLength, fiberVol, fiberOrientation1, fiberOrientation2, fiberOrientation3, fiberPref, fiberCutting, fiberIntersections, fiberOutputFiles, surfaceFaces, phaseMode=3, phaseMinPar=None, phaseMaxPar=None, phaseOffsetCoefList=None, phaseFillerContent=None, phaseFillerDensity=None, fillerOnlyPhases=False, interfaceRegions=None, pathSegments=None):
 
     verbose_on = _verbose_on(verbose)
 
@@ -523,7 +523,7 @@ def gen_LDPMCSL_multiStep(tempPath, numCPU, numIncrements, maxIter, parOffset, m
 
                         futures = []
                         for parDiam in particle_batch:
-                            future = executor.submit(gen_particleMPI, surfaceNodes, maxParNum, minC, maxC, 
+                            future = executor.submit(gen_particleparallel, surfaceNodes, maxParNum, minC, maxC, 
                                                     meshVertices, meshTets, coord1, coord2, coord3, coord4,
                                                     newMaxIter, maxIter, minPar_sim, maxPar_sim, parOffset,
                                                     verbose, parDiameterList, maxEdgeLength, max_dist, 
@@ -547,7 +547,7 @@ def gen_LDPMCSL_multiStep(tempPath, numCPU, numIncrements, maxIter, parOffset, m
                                     nodeMPI[x,1]+diameter[x]/2+maxPar_sim/2+parOffset,nodeMPI[x,2]+\
                                     diameter[x]/2+maxPar_sim/2+parOffset]))
 
-                                overlap = check_particleOverlapMPI(nodeMPI[x,:],diameter[x],binMin,\
+                                overlap = check_particleOverlapparallel(nodeMPI[x,:],diameter[x],binMin,\
                                     binMax,minPar_sim,parOffset,nodeMPI[0:x],diameter[0:x])
 
                                 if overlap == True:
@@ -790,7 +790,7 @@ def gen_LDPMCSL_multiStep(tempPath, numCPU, numIncrements, maxIter, parOffset, m
                 [p1Fiber, p2Fiber, orienFiber, lFiber] = gen_LDPMCSL_fibers(meshVertices,meshTets,coord1,\
                     coord2,coord3,coord4,maxIter,fiberLength,maxC,maxPar_sim,\
                     np.array([fiberOrientation1, fiberOrientation2, fiberOrientation3]),fiberPref,surfaceFaces,\
-                    fiberCutting,None)
+                    fiberCutting,pathSegments,interfaceRegions)
                 p1Fibers[x,:] = p1Fiber
                 p2Fibers[x,:] = p2Fiber
                 orienFibers[x,:] = orienFiber
