@@ -50,7 +50,7 @@ def read_SPHDEM_inputs(form):
         dimensions.append(form[1].coneHeight.text())
         dimensions.append(form[1].coneRadius1.text())
         dimensions.append("0 mm")
-    if geoType == "Prism":
+    if geoType == "Arbitrary Prism":
         dimensions.append(form[1].prismCircumradius.text())
         dimensions.append(form[1].prismHeight.text())
         dimensions.append(form[1].prismPolygon.text())

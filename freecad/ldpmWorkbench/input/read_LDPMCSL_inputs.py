@@ -34,6 +34,15 @@ CAD_FILE_DIALOG_FILTER = (
     "                    STEP format       (*.step *.stp *.STEP *.STP)"
 )
 
+_PROFILE_GLOB = "*.dxf *.DXF " + _CAD_GLOB
+PROFILE_FILE_DIALOG_FILTER = (
+    f"Supported formats ({_PROFILE_GLOB});;"
+    "                    DXF format        (*.dxf *.DXF);; "
+    "                    BREP format       (*.brep *.brp *.BREP *.BRP);; "
+    "                    IGES format       (*.iges *.igs *.IGES *.IGS);; "
+    "                    STEP format       (*.step *.stp *.STEP *.STP)"
+)
+
 GEOMETRY_FILE_DIALOG_FILTER = (
     f"Supported formats ({_CAD_GLOB} {_MESH_GLOB});;"
     "                    BREP format       (*.brep *.brp *.BREP *.BRP);; "
@@ -57,16 +66,34 @@ def is_mesh_geometry_file(path):
 
 
 def normalize_sweep3dp_path_type_index(path_type_idx):
-    legacy_to_current = {0: 0, 2: 1, 4: 2, 5: 3}
     try:
         idx = int(path_type_idx)
     except (TypeError, ValueError):
         return 0
-    if idx in legacy_to_current:
-        return legacy_to_current[idx]
-    if idx in (1, 3):
+    if idx in (4, 5):
+        return {4: 2, 5: 3}[idx]
+    if 0 <= idx <= 3:
+        return idx
+    return 0
+
+
+def sweep3dp_path_stored_index(ui_idx):
+    try:
+        idx = int(ui_idx)
+    except (TypeError, ValueError):
         return 0
-    return max(0, min(3, idx))
+    return {0: 0, 1: 6, 2: 1, 3: 2, 4: 3}.get(idx, 0)
+
+
+def sweep3dp_path_ui_index(stored_idx):
+    try:
+        idx = int(stored_idx)
+    except (TypeError, ValueError):
+        return 0
+    if idx == 6:
+        return 1
+    stored = normalize_sweep3dp_path_type_index(idx)
+    return {0: 0, 1: 2, 2: 3, 3: 4}.get(stored, 0)
 
 
 def _form_with_attr(form, attr):
@@ -215,6 +242,15 @@ def read_LDPMCSL_inputs(form):
     if geoType == "Cylinder":
         dimensions.append(form[1].cylinderHeight.text())
         dimensions.append(form[1].cylinderRadius.text())
+    if geoType == "L-shape":
+        dimensions.append(form[1].lshapeLengthX.text())
+        dimensions.append(form[1].lshapeLengthY.text())
+        if hasattr(form[1], "lshapeWidth"):
+            dimensions.append(form[1].lshapeWidth.text())
+        else:
+            dimensions.append(form[1].lshapeThickness.text())
+        dimensions.append(form[1].lshapeThickness.text())
+        dimensions.append(form[1].lshapeInsideFillet.text())
     if geoType == "Cone":
         dimensions.append(form[1].coneHeight.text())
         dimensions.append(form[1].coneRadius1.text())
@@ -275,7 +311,7 @@ def read_LDPMCSL_inputs(form):
             dimensions.append("")  # No layer width
             dimensions.append("")  # No layer height
             dimensions.append(form[1].sweep3dpProfileFile.toPlainText())
-        pathTypeIdx = form[1].sweep3dpPathType.currentIndex()
+        pathTypeIdx = sweep3dp_path_stored_index(form[1].sweep3dpPathType.currentIndex())
         dimensions.append(str(pathTypeIdx))
 
         # Store all possible params so downstream can switch by index safely:
@@ -311,13 +347,36 @@ def read_LDPMCSL_inputs(form):
             dimensions.append(sketch_name)
             numLayers = int(form[1].sweep3dpNumLayersSketch.value() or 1)
             dimensions.append(str(numLayers))
-        else:
+        elif pathTypeIdx == 6:
+            dimensions.append("")
+            diaTxt = form[1].sweep3dpCircularDiameter.text() if hasattr(form[1], "sweep3dpCircularDiameter") else ""
+            if not diaTxt or diaTxt.strip() == "":
+                diaTxt = "100 mm"
+            dimensions.append(diaTxt)
+            dimensions.append("")
+            dimensions.append("")
+            dimensions.append("")
+            numLayers = int(form[1].sweep3dpNumLayersCircular.value() or 1) if hasattr(form[1], "sweep3dpNumLayersCircular") else 1
+            dimensions.append(str(numLayers))
+            seam_on = hasattr(form[1], "sweep3dpCircularSeam") and form[1].sweep3dpCircularSeam.isChecked()
+            dimensions.append("Yes" if seam_on else "No")
+            seam_pos = form[1].sweep3dpCircularSeamPosition.currentText() if hasattr(form[1], "sweep3dpCircularSeamPosition") else "Aligned"
+            dimensions.append(seam_pos if seam_pos else "Aligned")
+            seam_dist = form[1].sweep3dpCircularSeamDistance.text() if hasattr(form[1], "sweep3dpCircularSeamDistance") else ""
+            if not seam_dist or seam_dist.strip() == "":
+                seam_dist = "1 mm"
+            dimensions.append(seam_dist)
+            seam_fillet = form[1].sweep3dpCircularSeamFillet.text() if hasattr(form[1], "sweep3dpCircularSeamFillet") else ""
+            if not seam_fillet or seam_fillet.strip() == "":
+                seam_fillet = "0 mm"
+            dimensions.append(seam_fillet)
+        elif pathTypeIdx == 3:
             dimensions.append("")
             dimensions.append("")
             dimensions.append("")
             dimensions.append("")
             dimensions.append("")
-            numLayers = int(form[1].sweep3dpNumSlicesRaster.value() or 1)
+            numLayers = max(1, min(8, int(form[1].sweep3dpNumSlicesRaster.value() or 1)))
             dimensions.append(str(numLayers))
 
             rasterLoops = int(form[1].sweep3dpRasterLoops.value() or 1)
@@ -333,14 +392,13 @@ def read_LDPMCSL_inputs(form):
             dimensions.append(str(rasterLoops))
             dimensions.append(rasterSpacing)
             dimensions.append(str(numLayers))
-            dimensions.append(str(float(form[1].sweep3dpSliceDir1.value() or 0.0)))
-            dimensions.append(str(float(form[1].sweep3dpSliceDir2.value() or 90.0)))
-            dimensions.append(str(float(form[1].sweep3dpSliceDir3.value() or 0.0)))
-            dimensions.append(str(float(form[1].sweep3dpSliceDir4.value() or 90.0)))
-            dimensions.append(str(float(form[1].sweep3dpSliceDir5.value() or 0.0)))
-            dimensions.append(str(float(form[1].sweep3dpSliceDir6.value() or 90.0)))
-            dimensions.append(str(float(form[1].sweep3dpSliceDir7.value() or 0.0)))
-            dimensions.append(str(float(form[1].sweep3dpSliceDir8.value() or 90.0)))
+            default_dirs = [0.0, 90.0, 0.0, 90.0, 0.0, 90.0, 0.0, 90.0]
+            for i in range(numLayers):
+                box = getattr(form[1], f"sweep3dpSliceDir{i + 1}", None)
+                if box is not None:
+                    dimensions.append(str(float(box.value() or default_dirs[i])))
+                else:
+                    dimensions.append(str(default_dirs[i]))
             dimensions.append(rasterCornerFillet)
             dimensions.append(rasterPathLength)
 
@@ -428,6 +486,7 @@ def read_LDPMCSL_inputs(form):
         fiberFile           = reinfForm.fiberFile.text()
         fiberIntersections  = reinfForm.fiberIntersections_sweep3dp.currentText()
         fiberOutputFiles    = reinfForm.fiberOutputFiles_sweep3dp.currentText() if hasattr(reinfForm, "fiberOutputFiles_sweep3dp") else "Off"
+        fiberInterfaceIntersect = reinfForm.fiberInterfaceIntersect_sweep3dp.currentText() if hasattr(reinfForm, "fiberInterfaceIntersect_sweep3dp") else "On"
     elif reinfForm is not None:
         fiberToggle         = reinfForm.fiberToggle.currentText()
         fiberCutting        = reinfForm.fiberCutting.currentText()
@@ -443,6 +502,7 @@ def read_LDPMCSL_inputs(form):
         fiberFile           = reinfForm.fiberFile.text()
         fiberIntersections  = reinfForm.fiberIntersections.currentText()
         fiberOutputFiles    = reinfForm.fiberOutputFiles.currentText() if hasattr(reinfForm, "fiberOutputFiles") else "Off"
+        fiberInterfaceIntersect = reinfForm.fiberInterfaceIntersect.currentText() if hasattr(reinfForm, "fiberInterfaceIntersect") else "On"
     else:
         fiberToggle         = "Off"
         fiberCutting        = "Off"
@@ -456,6 +516,7 @@ def read_LDPMCSL_inputs(form):
         fiberFile           = ""
         fiberIntersections  = "Off"
         fiberOutputFiles    = "Off"
+        fiberInterfaceIntersect = "Off"
 
     # Additional Parameters - Multi-Material Parameters
     multiMatForm = _form_with_attr(form, "multiMatToggle")
@@ -573,9 +634,14 @@ def read_LDPMCSL_inputs(form):
     modelType           = genForm.modelType.currentText()
 
     orientForm = reinfForm if reinfForm is not None else htcForm
-    orientationPathType_sweep3dp = orientForm.orientationPathType_sweep3dp.currentIndex() if hasattr(orientForm, 'orientationPathType_sweep3dp') else 0
+    orientationPathType_sweep3dp = sweep3dp_path_stored_index(orientForm.orientationPathType_sweep3dp.currentIndex()) if hasattr(orientForm, 'orientationPathType_sweep3dp') else 0
     orientationPathSketchName_sweep3dp = (orientForm.orientationPathSketchName_sweep3dp.text() or "") if hasattr(orientForm, 'orientationPathSketchName_sweep3dp') else ""
-    orientationSegments_sweep3dp = int(orientForm.orientationSegments_sweep3dp.value() or 36) if hasattr(orientForm, 'orientationSegments_sweep3dp') else 36
+    if hasattr(orientForm, 'orientationSegmentLength_sweep3dp'):
+        orientationSegmentLength_sweep3dp = float(orientForm.orientationSegmentLength_sweep3dp.value() or 10.0)
+    else:
+        orientationSegmentLength_sweep3dp = 10.0
+    if orientationSegmentLength_sweep3dp <= 0:
+        orientationSegmentLength_sweep3dp = 10.0
 
     return setupFile, constitutiveEQ, matParaSet, \
         numCPU, numIncrements,maxIter,placementAlg,\
@@ -585,7 +651,7 @@ def read_LDPMCSL_inputs(form):
         cementDensity, flyashDensity, silicaDensity, scmDensity, airFrac1, \
         fillerC, fillerDensity, airFrac2,\
         HTCtoggle, HTClength,\
-        fiberToggle, fiberCutting, fiberDiameter, fiberLength, fiberVol, fiberOrientation1, fiberOrientation2, fiberOrientation3, fiberPref, fiberFile, fiberIntersections, fiberOutputFiles,\
+        fiberToggle, fiberCutting, fiberDiameter, fiberLength, fiberVol, fiberOrientation1, fiberOrientation2, fiberOrientation3, fiberPref, fiberFile, fiberIntersections, fiberOutputFiles, fiberInterfaceIntersect,\
         multiMatToggle,aggFile,multiMatFile,multiMatRule,\
         grainAggMin, grainAggMax, grainAggFuller, grainAggSieveD, grainAggSieveP,\
         grainITZMin, grainITZMax, grainITZFuller, grainITZSieveD, grainITZSieveP,\
@@ -595,4 +661,4 @@ def read_LDPMCSL_inputs(form):
         particlePhaseMode, phaseMinPar, phaseMaxPar, phaseOffsetCoefList,\
         periodicToggle,particleOffsetCoef,\
         outputDir, dataFilesGen, visFilesGen, singleTetGen, modelType,\
-        orientationPathType_sweep3dp, orientationPathSketchName_sweep3dp, orientationSegments_sweep3dp
+        orientationPathType_sweep3dp, orientationPathSketchName_sweep3dp, orientationSegmentLength_sweep3dp
