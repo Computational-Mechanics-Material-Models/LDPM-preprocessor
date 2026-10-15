@@ -1599,7 +1599,7 @@
       </property>
       <property name="icon">
        <iconset>
-        <normaloff>:/icons/Arch_Nest.svg</normaloff>:/icons/Arch_Nest.svg</iconset>
+        <normaloff>../icons/Part_Dogbone.svg</normaloff>../icons/Part_Dogbone.svg</iconset>
       </property>
      </item>
      <item>

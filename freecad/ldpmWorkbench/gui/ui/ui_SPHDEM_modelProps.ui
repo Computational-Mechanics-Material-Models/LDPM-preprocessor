@@ -87,7 +87,7 @@
        <string notr="true">border-color: rgb(182, 182, 182);</string>
       </property>
       <property name="title">
-       <string>Particle Generation Parameters</string>
+       <string>Cell Generation Parameters</string>
       </property>
       <layout class="QGridLayout" name="gridLayout_2">
        <item row="0" column="0">
@@ -129,7 +129,7 @@
             <bool>true</bool>
            </property>
            <property name="text">
-            <string>Number of CPUs for Particle Placement</string>
+            <string>Number of CPUs</string>
            </property>
           </widget>
          </item>
@@ -174,7 +174,7 @@
             <bool>true</bool>
            </property>
            <property name="text">
-            <string>Number of Placement Increments (MPI only)</string>
+            <string>Number of Placement Increments</string>
            </property>
           </widget>
          </item>
@@ -219,7 +219,7 @@
             <bool>true</bool>
            </property>
            <property name="text">
-            <string>Maximum Particle Placement Iterations</string>
+            <string>Maximum Placement Iterations</string>
            </property>
           </widget>
          </item>
@@ -245,6 +245,13 @@
            </item>
           </widget>
          </item>
+        <item>
+         <widget class="QLabel" name="label_placementAlg">
+          <property name="text">
+           <string>Placement Algorithm</string>
+          </property>
+         </widget>
+        </item>
         </layout>
        </item>
       </layout>

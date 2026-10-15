@@ -274,6 +274,151 @@
           </item>
          </layout>
         </widget>
+        <widget class="QWidget" name="Page3_lshape">
+         <layout class="QGridLayout" name="gridLayout_lshape">
+          <property name="leftMargin">
+           <number>9</number>
+          </property>
+          <property name="topMargin">
+           <number>9</number>
+          </property>
+          <property name="rightMargin">
+           <number>9</number>
+          </property>
+          <property name="bottomMargin">
+           <number>9</number>
+          </property>
+          <property name="spacing">
+           <number>6</number>
+          </property>
+          <item row="0" column="0">
+           <layout class="QGridLayout" name="gridLayout_lshape_params">
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_lshapeLengthX">
+              <property name="text">
+               <string>Length in X:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="Gui::QuantitySpinBox" name="lshapeLengthX" native="true">
+              <property name="keyboardTracking" stdset="0">
+               <bool>false</bool>
+              </property>
+              <property name="unit" stdset="0">
+               <string notr="true">mm</string>
+              </property>
+              <property name="value" stdset="0">
+               <double>50.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_lshapeLengthY">
+              <property name="text">
+               <string>Length in Y:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="Gui::QuantitySpinBox" name="lshapeLengthY" native="true">
+              <property name="keyboardTracking" stdset="0">
+               <bool>false</bool>
+              </property>
+              <property name="unit" stdset="0">
+               <string notr="true">mm</string>
+              </property>
+              <property name="value" stdset="0">
+               <double>50.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_lshapeWidth">
+              <property name="text">
+               <string>Width:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="Gui::QuantitySpinBox" name="lshapeWidth" native="true">
+              <property name="keyboardTracking" stdset="0">
+               <bool>false</bool>
+              </property>
+              <property name="unit" stdset="0">
+               <string notr="true">mm</string>
+              </property>
+              <property name="value" stdset="0">
+               <double>10.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_lshapeThickness">
+              <property name="text">
+               <string>Thickness (along Z):</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="Gui::QuantitySpinBox" name="lshapeThickness" native="true">
+              <property name="keyboardTracking" stdset="0">
+               <bool>false</bool>
+              </property>
+              <property name="unit" stdset="0">
+               <string notr="true">mm</string>
+              </property>
+              <property name="value" stdset="0">
+               <double>10.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0">
+             <widget class="QLabel" name="label_lshapeInsideFillet">
+              <property name="text">
+               <string>Inside Fillet:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="1">
+             <widget class="Gui::QuantitySpinBox" name="lshapeInsideFillet" native="true">
+              <property name="keyboardTracking" stdset="0">
+               <bool>false</bool>
+              </property>
+              <property name="unit" stdset="0">
+               <string notr="true">mm</string>
+              </property>
+              <property name="minimum" stdset="0">
+               <double>0.000000000000000</double>
+              </property>
+              <property name="value" stdset="0">
+               <double>0.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="0">
+           <spacer name="spacer_lshape">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
+            </property>
+            <property name="sizeType">
+             <enum>QSizePolicy::Expanding</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </widget>
         <widget class="QWidget" name="page">
          <layout class="QGridLayout" name="gridLayout_2">
           <item row="0" column="0">
@@ -416,6 +561,68 @@
                    </property>
                   </widget>
                  </item>
+                 <item row="2" column="0" colspan="2">
+                  <widget class="QCheckBox" name="sweep3dpFirstLayerProperties">
+                   <property name="text">
+                    <string>First Layer Properties</string>
+                   </property>
+                   <property name="checked">
+                    <bool>false</bool>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="3" column="0">
+                  <widget class="QLabel" name="label_firstLayerWidth">
+                   <property name="visible">
+                    <bool>false</bool>
+                   </property>
+                   <property name="text">
+                    <string>First Layer Width:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="3" column="1">
+                  <widget class="Gui::QuantitySpinBox" name="sweep3dpFirstLayerWidth" native="true">
+                   <property name="visible">
+                    <bool>false</bool>
+                   </property>
+                   <property name="keyboardTracking" stdset="0">
+                    <bool>false</bool>
+                   </property>
+                   <property name="unit" stdset="0">
+                    <string notr="true">mm</string>
+                   </property>
+                   <property name="value" stdset="0">
+                    <double>0.400000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="4" column="0">
+                  <widget class="QLabel" name="label_firstLayerHeight">
+                   <property name="visible">
+                    <bool>false</bool>
+                   </property>
+                   <property name="text">
+                    <string>First Layer Height:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item row="4" column="1">
+                  <widget class="Gui::QuantitySpinBox" name="sweep3dpFirstLayerHeight" native="true">
+                   <property name="visible">
+                    <bool>false</bool>
+                   </property>
+                   <property name="keyboardTracking" stdset="0">
+                    <bool>false</bool>
+                   </property>
+                   <property name="unit" stdset="0">
+                    <string notr="true">mm</string>
+                   </property>
+                   <property name="value" stdset="0">
+                    <double>0.200000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
                 </layout>
                </widget>
                <widget class="QWidget" name="page_cad_profile">
@@ -466,11 +673,16 @@
             <layout class="QVBoxLayout" name="verticalLayout_path">
              <item>
               <widget class="QComboBox" name="sweep3dpPathType">
-<item>
+               <item>
                 <property name="text">
                  <string>Straight Line Path</string>
                 </property>
                </item>
+              <item>
+               <property name="text">
+                <string>Circular Path</string>
+               </property>
+              </item>
               <item>
                <property name="text">
                 <string>Square Path</string>
@@ -525,6 +737,150 @@
                 <item row="1" column="1">
                  <widget class="QSpinBox" name="sweep3dpNumLayers">
 <property name="minimum">
+                   <number>1</number>
+                  </property>
+                  <property name="value">
+                   <number>1</number>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="page_circular_path">
+               <layout class="QGridLayout" name="gridLayout_circular_path">
+                <item row="0" column="0">
+                 <widget class="QLabel" name="label_circularDiameter">
+                  <property name="text">
+                   <string>Path diameter:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="Gui::QuantitySpinBox" name="sweep3dpCircularDiameter" native="true">
+                  <property name="keyboardTracking" stdset="0">
+                   <bool>false</bool>
+                  </property>
+                  <property name="unit" stdset="0">
+                   <string notr="true">mm</string>
+                  </property>
+                  <property name="minimum" stdset="0">
+                   <double>0.000000000000000</double>
+                  </property>
+                  <property name="value" stdset="0">
+                   <double>100.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0" colspan="2">
+                 <widget class="QCheckBox" name="sweep3dpCircularSeam">
+                  <property name="text">
+                   <string>Seam</string>
+                  </property>
+                  <property name="checked">
+                   <bool>false</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QLabel" name="label_circularSeamPosition">
+                  <property name="visible">
+                   <bool>false</bool>
+                  </property>
+                  <property name="text">
+                   <string>Seam position:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QComboBox" name="sweep3dpCircularSeamPosition">
+                  <property name="visible">
+                   <bool>false</bool>
+                  </property>
+                  <item>
+                   <property name="text">
+                    <string>Aligned</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Random</string>
+                   </property>
+                  </item>
+                  <item>
+                   <property name="text">
+                    <string>Nearest</string>
+                   </property>
+                  </item>
+                 </widget>
+                </item>
+                <item row="3" column="0">
+                 <widget class="QLabel" name="label_circularSeamDistance">
+                  <property name="visible">
+                   <bool>false</bool>
+                  </property>
+                  <property name="text">
+                   <string>Distance:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="1">
+                 <widget class="Gui::QuantitySpinBox" name="sweep3dpCircularSeamDistance" native="true">
+                  <property name="visible">
+                   <bool>false</bool>
+                  </property>
+                  <property name="keyboardTracking" stdset="0">
+                   <bool>false</bool>
+                  </property>
+                  <property name="unit" stdset="0">
+                   <string notr="true">mm</string>
+                  </property>
+                  <property name="minimum" stdset="0">
+                   <double>0.000000000000000</double>
+                  </property>
+                  <property name="value" stdset="0">
+                   <double>1.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="0">
+                 <widget class="QLabel" name="label_circularSeamFillet">
+                  <property name="visible">
+                   <bool>false</bool>
+                  </property>
+                  <property name="text">
+                   <string>Fillet at corner:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="1">
+                 <widget class="Gui::QuantitySpinBox" name="sweep3dpCircularSeamFillet" native="true">
+                  <property name="visible">
+                   <bool>false</bool>
+                  </property>
+                  <property name="keyboardTracking" stdset="0">
+                   <bool>false</bool>
+                  </property>
+                  <property name="unit" stdset="0">
+                   <string notr="true">mm</string>
+                  </property>
+                  <property name="minimum" stdset="0">
+                   <double>0.000000000000000</double>
+                  </property>
+                  <property name="value" stdset="0">
+                   <double>0.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="0">
+                 <widget class="QLabel" name="label_numLayersCircular">
+                  <property name="text">
+                   <string>Number of Layers:</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="5" column="1">
+                 <widget class="QSpinBox" name="sweep3dpNumLayersCircular">
+                  <property name="minimum">
                    <number>1</number>
                   </property>
                   <property name="value">
@@ -660,7 +1016,7 @@
                 <item row="0" column="0">
                  <widget class="QLabel" name="label_rasterLoops">
                   <property name="text">
-                   <string>Number of Raster Loops:</string>
+                   <string>Number of parallel paths:</string>
                   </property>
                  </widget>
                 </item>
@@ -977,6 +1333,15 @@
       <property name="icon">
        <iconset>
         <normaloff>:/icons/parametric/Part_Cylinder_Parametric.svg</normaloff>:/icons/parametric/Part_Cylinder_Parametric.svg</iconset>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>L-shape</string>
+      </property>
+      <property name="icon">
+       <iconset>
+        <normaloff>../icons/Part_LShape.svg</normaloff>../icons/Part_LShape.svg</iconset>
       </property>
      </item>
      <item>

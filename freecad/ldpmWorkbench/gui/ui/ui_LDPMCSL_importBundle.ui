@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>572</width>
+    <height>120</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Import Mesh Bundle</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QGridLayout" name="gridLayout_import">
+    <item row="0" column="0">
+     <widget class="QGroupBox" name="groupBox_import">
+      <property name="title">
+       <string>Import Bundle</string>
+      </property>
+      <layout class="QGridLayout" name="gridLayout_importBundle">
+       <item row="0" column="0">
+        <layout class="QHBoxLayout" name="horizontalLayout_import">
+         <item>
+          <widget class="QLineEdit" name="bundlePath">
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+           <property name="placeholderText">
+            <string>No mesh bundle selected</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QToolButton" name="bundleButton">
+           <property name="text">
+            <string notr="true">...</string>
+           </property>
+           <property name="toolTip">
+            <string>Import mesh bundle folder</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
