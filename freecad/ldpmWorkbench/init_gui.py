@@ -44,6 +44,8 @@ from freecad.ldpmWorkbench.modules import mod_3DCPLDPM
 from freecad.ldpmWorkbench.modules import mod_RF
 from freecad.ldpmWorkbench.modules import mod_LDPMCSL_gen
 from freecad.ldpmWorkbench.modules import mod_SPHDEM
+from freecad.ldpmWorkbench.modules import mod_MeshPreview
+from freecad.ldpmWorkbench.update_check import check_for_update
 
 
 
@@ -55,7 +57,7 @@ class ldpmWorkbench(Gui.Workbench):
     MenuText = "LDPM Workbench"
     ToolTip = "A workbench for building LDPM, CSL, DEM, and SPH models for Project Chrono"
     Icon = os.path.join(ICONPATH, "ldpm.svg")
-    toolbox = ["mod_LDPM","mod_PLDPM","mod_3DCPLDPM","mod_RF","mod_LDPMCSL_gen","mod_SPHDEM"] # a list of command names 
+    toolbox = ["mod_LDPM","mod_PLDPM","mod_3DCPLDPM","mod_RF","mod_LDPMCSL_gen","mod_SPHDEM","mod_MeshPreview"] # a list of command names 
 
 
     def Initialize(self):
@@ -78,6 +80,7 @@ class ldpmWorkbench(Gui.Workbench):
         code which should be computed when a user switch to this workbench
         '''
         self._show_report_view()
+        check_for_update()
 
     @staticmethod
     def _show_report_view():
