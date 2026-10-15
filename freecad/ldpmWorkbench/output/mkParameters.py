@@ -25,6 +25,7 @@ from pathlib import Path
 # Importing: input
 from freecad.ldpmWorkbench.input.read_LDPMCSL_inputs                    import read_LDPMCSL_inputs, read_rf_generation_inputs
 from freecad.ldpmWorkbench.input.read_interlayer_inputs            import read_interlayer_inputs
+from freecad.ldpmWorkbench.input.read_reinforcement_inputs         import reinforcement_cwpar_values
 from freecad.ldpmWorkbench.input.read_SPHDEM_inputs                     import read_SPHDEM_inputs
 
 
@@ -54,6 +55,7 @@ def mkParameters(self, elementSet, tempPath, module=None):
     write_htc = module_name == "LDPM"
     write_periodic = module_name == "LDPM"
     write_interlayer = module_name == "3DCPLDPM"
+    write_reinforcement = module_name == "3DCPLDPM"
     write_sweep_orient = module_name == "3DCPLDPM"
     write_fiber = module_name != "PLDPM"
     write_rf = module_name != "PLDPM"
@@ -68,7 +70,7 @@ def mkParameters(self, elementSet, tempPath, module=None):
             cementDensity, flyashDensity, silicaDensity, scmDensity, airFrac1, \
             fillerC, fillerDensity, airFrac2,\
             htcToggle, htcLength,\
-            fiberToggle, fiberCutting, fiberDiameter, fiberLength, fiberVol, fiberOrientation1, fiberOrientation2, fiberOrientation3, fiberPref, fiberFile, fiberIntersections, fiberOutputFiles,\
+            fiberToggle, fiberCutting, fiberDiameter, fiberLength, fiberVol, fiberOrientation1, fiberOrientation2, fiberOrientation3, fiberPref, fiberFile, fiberIntersections, fiberOutputFiles, fiberInterfaceIntersect,\
             multiMatToggle,aggFile,multiMatFile,multiMatRule,\
             grainAggMin, grainAggMax, grainAggFuller, grainAggSieveD, grainAggSieveP,\
             grainITZMin, grainITZMax, grainITZFuller, grainITZSieveD, grainITZSieveP,\
@@ -78,8 +80,9 @@ def mkParameters(self, elementSet, tempPath, module=None):
             particlePhaseMode, phaseMinPar, phaseMaxPar, phaseOffsetCoefList,\
             periodicToggle,particleOffsetCoef,\
             outDir, dataFilesGen, visFilesGen, singleTetGen, modelType,\
-            orientationPathType_sweep3dp, orientationPathSketchName_sweep3dp, orientationSegments_sweep3dp] = read_LDPMCSL_inputs(self.form)
+            orientationPathType_sweep3dp, orientationPathSketchName_sweep3dp, orientationSegmentLength_sweep3dp] = read_LDPMCSL_inputs(self.form)
         interlayer_params = read_interlayer_inputs(self.form) if write_interlayer else None
+        reinf_cwpar = reinforcement_cwpar_values(self.form) if write_reinforcement else None
         rf_params = (
             read_rf_generation_inputs(
                 self.form,
@@ -117,7 +120,7 @@ def mkParameters(self, elementSet, tempPath, module=None):
         with open(usePath, "w") as f:
             f.write("""
 // ================================================================================
-// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor
+// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor
 //
 // Copyright (c) 2023 
 // All rights reserved. 
@@ -139,8 +142,31 @@ def mkParameters(self, elementSet, tempPath, module=None):
             f.write("numIncrements = " + str(numIncrements) + "\n")
             f.write("maxIter = " + str(maxIter) + "\n")
             f.write("placementAlg = " + placementAlg + "\n")
+            mpiToggle = "Off"
+            mpiRank = 8
+            mpiNodes = 1
+            if hasattr(self.form[0], "mpiToggle"):
+                mpiToggle = self.form[0].mpiToggle.currentText()
+            if hasattr(self.form[0], "mpiRank"):
+                mpiRank = int(self.form[0].mpiRank.value())
+            if hasattr(self.form[0], "mpiNodes"):
+                mpiNodes = int(self.form[0].mpiNodes.value())
+            f.write("mpiToggle = " + str(mpiToggle) + "\n")
+            f.write("mpiRank = " + str(mpiRank) + "\n")
+            f.write("mpiNodes = " + str(mpiNodes) + "\n")
             f.write("geoType = " + geoType + "\n")
             f.write("dimensions = " + str(dimensions) + "\n")
+            if geoType == "Sweep-3DP" and hasattr(self.form[1], "sweep3dpFirstLayerProperties"):
+                flp_on = self.form[1].sweep3dpFirstLayerProperties.isChecked()
+                f.write("sweep3dpFirstLayerProperties = " + ("Yes" if flp_on else "No") + "\n")
+                flw = ""
+                flh = ""
+                if hasattr(self.form[1], "sweep3dpFirstLayerWidth"):
+                    flw = self.form[1].sweep3dpFirstLayerWidth.text()
+                if hasattr(self.form[1], "sweep3dpFirstLayerHeight"):
+                    flh = self.form[1].sweep3dpFirstLayerHeight.text()
+                f.write("sweep3dpFirstLayerWidth = " + str(flw) + "\n")
+                f.write("sweep3dpFirstLayerHeight = " + str(flh) + "\n")
             f.write("cadFile = " + cadFile + "\n")
             f.write("minPar_sim = " + str(minPar_sim) + "\n")
             f.write("maxPar_sim = " + str(maxPar_sim) + "\n")
@@ -181,11 +207,12 @@ def mkParameters(self, elementSet, tempPath, module=None):
                 f.write("fiberFile = " + fiberFile + "\n")
                 f.write("fiberIntersections = " + str(fiberIntersections) + "\n")
                 f.write("fiberOutputFiles = " + str(fiberOutputFiles) + "\n")
+                f.write("fiberInterfaceIntersect = " + str(fiberInterfaceIntersect) + "\n")
 
             if write_sweep_orient:
                 f.write("orientationPathType_sweep3dp = " + str(orientationPathType_sweep3dp) + "\n")
                 f.write("orientationPathSketchName_sweep3dp = " + str(orientationPathSketchName_sweep3dp) + "\n")
-                f.write("orientationSegments_sweep3dp = " + str(orientationSegments_sweep3dp) + "\n")
+                f.write("orientationSegmentLength_sweep3dp = " + str(orientationSegmentLength_sweep3dp) + "\n")
 
             if write_multimat:
                 f.write("multiMatToggle = " + multiMatToggle + "\n")
@@ -268,7 +295,39 @@ def mkParameters(self, elementSet, tempPath, module=None):
                 f.write("interfaceThickness = " + str(interlayer_params["interfaceThickness"]) + "\n")
                 f.write("bulkMf = " + str(interlayer_params["bulkMf"]) + "\n")
                 if interlayer_type == "Custom":
+                    f.write("customMode = " + str(interlayer_params.get("customMode", "fourPoint")) + "\n")
                     f.write("customDefinition = " + json.dumps(interlayer_params.get("customDefinition", "")) + "\n")
+                    f.write(
+                        "customPathRibbonDefinition = "
+                        + json.dumps(interlayer_params.get("customPathRibbonDefinition", ""))
+                        + "\n"
+                    )
+                    f.write(
+                        "customPathRibbonPlane = "
+                        + json.dumps(interlayer_params.get("customPathRibbonPlane", "XY"))
+                        + "\n"
+                    )
+                    f.write(
+                        "customPathRibbonType = "
+                        + json.dumps(interlayer_params.get("customPathRibbonType", "Polyline"))
+                        + "\n"
+                    )
+                    f.write(
+                        "customPathRibbonPlaneHeight = "
+                        + str(interlayer_params.get("customPathRibbonPlaneHeight", 0.0))
+                        + "\n"
+                    )
+                    f.write("customDxfCadFile = " + json.dumps(interlayer_params.get("customDxfCadFile", "")) + "\n")
+                    f.write("customDxfPlane = " + json.dumps(interlayer_params.get("customDxfPlane", "XY")) + "\n")
+                    f.write(
+                        "customDxfPlaneHeight = " + str(interlayer_params.get("customDxfPlaneHeight", 0.0)) + "\n"
+                    )
+                    f.write(
+                        "customDxfStartPosition = "
+                        + json.dumps(interlayer_params.get("customDxfStartPosition", "0, 0, 0"))
+                        + "\n"
+                    )
+                    f.write("customDxfMf = " + str(interlayer_params.get("customDxfMf", 2)) + "\n")
                 elif interlayer_type == "Multidirectional Interlayer":
                     f.write("firstLayerThickness = " + str(interlayer_params["firstLayerThickness"]) + "\n")
                     f.write("layerThickness = " + str(interlayer_params["layerThickness"]) + "\n")
@@ -281,11 +340,36 @@ def mkParameters(self, elementSet, tempPath, module=None):
                         f.write("multiDir" + str(i) + "Toggle = " + ("Yes" if direction.get("enabled") else "No") + "\n")
                         f.write("multiDir" + str(i) + "Axis = " + direction.get("axis", "X") + "\n")
                         f.write("multiDir" + str(i) + "Mode = " + direction.get("mode", "Height") + "\n")
+                elif interlayer_type in ("Fused Surfaces", "Interlayer at Fused Surfaces"):
+                    f.write("fusePathType = " + str(interlayer_params.get("fusePathType", 0)) + "\n")
+                    f.write("fuseInterfaceX = " + ("Yes" if interlayer_params.get("fuseInterfaceX") else "No") + "\n")
+                    f.write("fuseInterfaceY = " + ("Yes" if interlayer_params.get("fuseInterfaceY") else "No") + "\n")
+                    f.write("fuseInterfaceZ = " + ("Yes" if interlayer_params.get("fuseInterfaceZ") else "No") + "\n")
+                    f.write("xMf = " + str(interlayer_params.get("xMf", 2)) + "\n")
+                    f.write("yMf = " + str(interlayer_params.get("yMf", 3)) + "\n")
+                    f.write("zMf = " + str(interlayer_params.get("zMf", 4)) + "\n")
+                    f.write("overlapMf = " + str(interlayer_params.get("overlapMf", 5)) + "\n")
+                    f.write("layerWidth = " + str(interlayer_params.get("layerWidth", 1.0)) + "\n")
+                    f.write("layerHeight = " + str(interlayer_params.get("layerHeight", 1.0)) + "\n")
+                    f.write("numLayers = " + str(interlayer_params.get("numLayers", 1)) + "\n")
+                    f.write("pathDistance = " + str(interlayer_params.get("pathDistance", 0.0)) + "\n")
+                    f.write("fuseSketchName = " + str(interlayer_params.get("fuseSketchName", "")) + "\n")
+                    f.write("rasterLoops = " + str(interlayer_params.get("rasterLoops", 1)) + "\n")
+                    f.write("rasterSpacing = " + str(interlayer_params.get("rasterSpacing", 0.0)) + "\n")
+                    f.write("rasterAngles = " + json.dumps(interlayer_params.get("rasterAngles", [])) + "\n")
+                    f.write("circularDiameter = " + str(interlayer_params.get("circularDiameter", 0.0)) + "\n")
+                    f.write("circularSeam = " + ("Yes" if interlayer_params.get("circularSeam") else "No") + "\n")
+                    f.write("circularSeamMode = " + str(interlayer_params.get("circularSeamMode", "Aligned")) + "\n")
+                    f.write("circularSeamDistance = " + str(interlayer_params.get("circularSeamDistance", 0.0)) + "\n")
                 else:
                     f.write("firstLayerThickness = " + str(interlayer_params["firstLayerThickness"]) + "\n")
                     f.write("layerThickness = " + str(interlayer_params["layerThickness"]) + "\n")
                     f.write("interlayerAxis = " + interlayer_params.get("axis", "Z") + "\n")
                     f.write("interlayerMf = " + str(interlayer_params.get("interlayerMf", 2)) + "\n")
+
+            if write_reinforcement and reinf_cwpar is not None:
+                for key, value in reinf_cwpar.items():
+                    f.write(str(key) + " = " + str(value) + "\n")
 
             f.write("modelType = " + modelType + "\n")
             f.write("outputDir = " + outDir + "\n")
@@ -296,7 +380,7 @@ def mkParameters(self, elementSet, tempPath, module=None):
         with open(usePath, "w") as f:
             f.write("""
 // ================================================================================
-// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor
+// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor
 //
 // Copyright (c) 2023 
 // All rights reserved. 

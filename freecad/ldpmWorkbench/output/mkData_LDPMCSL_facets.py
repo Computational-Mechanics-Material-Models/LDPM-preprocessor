@@ -22,6 +22,25 @@
 from pathlib import Path
 import numpy as np
 
+_WRITE_CHUNK = 200000
+
+
+def _write_numeric_dat(path, data, header):
+    with Path(path).open("w", newline="\n") as handle:
+        if header:
+            handle.write(header)
+            if not header.endswith("\n"):
+                handle.write("\n")
+        n = len(data)
+        for i0 in range(0, n, _WRITE_CHUNK):
+            np.savetxt(
+                handle,
+                data[i0:i0 + _WRITE_CHUNK],
+                fmt="%.10g",
+                delimiter=" ",
+                comments="",
+            )
+
 
 def mkData_LDPMCSL_facets(geoName,tempPath,facetData):
     
@@ -41,7 +60,7 @@ def mkData_LDPMCSL_facets(geoName,tempPath,facetData):
     if np.size(facetData,axis=1) == 19:
         headerText = '\
 // ================================================================================\n\
-// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor\n\
+// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor\n\
 //\n\
 // Copyright (c) 2023 \n\
 // All rights reserved. \n\
@@ -63,7 +82,7 @@ def mkData_LDPMCSL_facets(geoName,tempPath,facetData):
     elif np.size(facetData,axis=1) == 22:
         headerText = '\
 // ================================================================================\n\
-// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor\n\
+// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor\n\
 //\n\
 // Copyright (c) 2023 \n\
 // All rights reserved. \n\
@@ -85,7 +104,7 @@ def mkData_LDPMCSL_facets(geoName,tempPath,facetData):
     elif np.size(facetData,axis=1) == 24:
         headerText = '\
 // ================================================================================\n\
-// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor\n\
+// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor\n\
 //\n\
 // Copyright (c) 2023 \n\
 // All rights reserved. \n\
@@ -107,7 +126,7 @@ def mkData_LDPMCSL_facets(geoName,tempPath,facetData):
     elif np.size(facetData,axis=1) == 27:
         headerText = '\
 // ================================================================================\n\
-// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor\n\
+// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor\n\
 //\n\
 // Copyright (c) 2023 \n\
 // All rights reserved. \n\
@@ -133,6 +152,8 @@ def mkData_LDPMCSL_facets(geoName,tempPath,facetData):
         )
 
 
-    np.savetxt(Path(tempPath + geoName + \
-        '-data-facets.dat'), facetData, fmt='%.10g', comments = '', delimiter=' '\
-        ,header=headerText)
+    _write_numeric_dat(
+        tempPath + geoName + '-data-facets.dat',
+        facetData,
+        headerText,
+    )

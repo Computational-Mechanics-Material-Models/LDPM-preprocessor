@@ -21,6 +21,25 @@
 import numpy as np
 from pathlib import Path
 
+_WRITE_CHUNK = 200000
+
+
+def _write_numeric_dat(path, data, header):
+    with Path(path).open("w", newline="\n") as handle:
+        if header:
+            handle.write(header)
+            if not header.endswith("\n"):
+                handle.write("\n")
+        n = len(data)
+        for i0 in range(0, n, _WRITE_CHUNK):
+            np.savetxt(
+                handle,
+                data[i0:i0 + _WRITE_CHUNK],
+                fmt="%.10g",
+                delimiter=" ",
+                comments="",
+            )
+
 
 def mkData_LDPMCSL_facetsVertices(geoName,tempPath,tetFacets):
 
@@ -45,11 +64,12 @@ def mkData_LDPMCSL_facetsVertices(geoName,tempPath,tetFacets):
 
 
     # Write the data file
-    np.savetxt(Path(tempPath + geoName + \
-        '-data-facetsVertices.dat'), facetPoints, fmt='%.10g', delimiter=' ', comments=''\
-        ,header='\
+    _write_numeric_dat(
+        tempPath + geoName + '-data-facetsVertices.dat',
+        facetPoints,
+        '\
 // ================================================================================\n\
-// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor\n\
+// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor\n\
 //\n\
 // Copyright (c) 2023 \n\
 // All rights reserved. \n\
@@ -65,6 +85,7 @@ def mkData_LDPMCSL_facetsVertices(geoName,tempPath,tetFacets):
 // Data Structure:\n\
 // X Y Z\n\
 //\n\
-// ================================================================================')
+// ================================================================================',
+    )
     
 

@@ -43,7 +43,7 @@ def mkData_LDPMCSL_tets(geoName,tempPath,allTets):
         '-data-tets.dat'), allTets.astype(int), fmt='%i', delimiter=' ', comments=''\
         ,header='\
 // ================================================================================\n\
-// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor\n\
+// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor\n\
 //\n\
 // Copyright (c) 2023 \n\
 // All rights reserved. \n\

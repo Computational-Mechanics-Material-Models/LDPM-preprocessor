@@ -42,7 +42,7 @@ def mkData_nodes(geoName,tempPath,nodes):
         '-data-nodes.dat'), nodes, fmt='%.10g', delimiter=' ', comments=''\
         ,header='\
 // ================================================================================\n\
-// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor\n\
+// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor\n\
 //\n\
 // Copyright (c) 2023 \n\
 // All rights reserved. \n\

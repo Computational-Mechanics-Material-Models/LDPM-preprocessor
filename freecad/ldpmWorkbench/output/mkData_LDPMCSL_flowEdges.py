@@ -52,7 +52,7 @@ def mkData_LDPMCSL_flowEdges(geoName,edgeData,tempPath):
     np.savetxt(Path(tempPath + geoName + '-data-flowEdges.dat'), nodes, fmt='%.16g', delimiter=' '\
         ,header='\
 // ================================================================================\n\
-// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor\n\
+// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor\n\
 //\n\
 // Copyright (c) 2023 \n\
 // All rights reserved. \n\

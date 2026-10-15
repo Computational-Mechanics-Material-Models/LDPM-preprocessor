@@ -60,7 +60,7 @@ def mkChronoInput(elementType, analysisName, materialProps, materialPropsDesc, m
 
         output_file.write("""
 // ================================================================================
-// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor
+// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor
 //
 // Copyright (c) 2023 
 // All rights reserved. 

@@ -22,11 +22,26 @@
 import numpy as np
 from pathlib import Path
 
+_CHUNK = 200000
+
+
+def _write_lines(handle, lines):
+    batch = []
+    for line in lines:
+        batch.append(line)
+        if len(batch) >= _CHUNK:
+            handle.write("\n".join(batch))
+            handle.write("\n")
+            batch.clear()
+    if batch:
+        handle.write("\n".join(batch))
+        handle.write("\n")
+
 
 def mkVtk_LDPMCSL_facets(geoName, tempPath, tetFacets, facetMaterial, facetData=None):
 
     FacetPoints = tetFacets.reshape(-1, 3)
-    FacetCells = np.arange(0, len(FacetPoints)).reshape(-1, 3)
+    n_facets = len(FacetPoints) // 3
 
     e_rf = None
     str_rf = None
@@ -54,33 +69,35 @@ def mkVtk_LDPMCSL_facets(geoName, tempPath, tetFacets, facetMaterial, facetData=
         f.write("DATASET POLYDATA\n")
 
         f.write("POINTS " + str(len(FacetPoints)) + " float \n")
-        f.write("\n".join(" ".join(map(str, x)) for x in FacetPoints))
-        f.write("\n\n")
+        _write_lines(f, (" ".join(map(str, point)) for point in FacetPoints))
+        f.write("\n")
 
         f.write(
             "POLYGONS "
-            + str(len(FacetCells))
+            + str(n_facets)
             + " "
-            + str(round(len(FacetCells) * 4))
-            + "\n3 "
+            + str(n_facets * 4)
+            + "\n"
         )
-        f.write("\n3 ".join(" ".join(map(str, x)) for x in FacetCells))
+        _write_lines(
+            f,
+            (
+                "3 %d %d %d" % (3 * index, 3 * index + 1, 3 * index + 2)
+                for index in range(n_facets)
+            ),
+        )
 
-        f.write("\n\nCELL_DATA " + str(len(FacetCells)) + "\n")
+        f.write("\nCELL_DATA " + str(n_facets) + "\n")
         f.write("FIELD FieldData " + str(n_fields) + "\n")
-        f.write("Material 1 " + str(len(FacetCells)) + " float\n")
-        f.write("\n".join(map(str, facetMaterial)))
-        f.write("\n")
+        f.write("Material 1 " + str(n_facets) + " float\n")
+        _write_lines(f, map(str, facetMaterial))
 
         if e_rf is not None:
-            f.write("E_rf 1 " + str(len(FacetCells)) + " float\n")
-            f.write("\n".join(map(str, e_rf)))
-            f.write("\n")
-            f.write("str_rf 1 " + str(len(FacetCells)) + " float\n")
-            f.write("\n".join(map(str, str_rf)))
-            f.write("\n")
-            f.write("frc_rf 1 " + str(len(FacetCells)) + " float\n")
-            f.write("\n".join(map(str, frc_rf)))
-            f.write("\n")
+            f.write("E_rf 1 " + str(n_facets) + " float\n")
+            _write_lines(f, map(str, e_rf))
+            f.write("str_rf 1 " + str(n_facets) + " float\n")
+            _write_lines(f, map(str, str_rf))
+            f.write("frc_rf 1 " + str(n_facets) + " float\n")
+            _write_lines(f, map(str, frc_rf))
 
         f.write("\n\n")
