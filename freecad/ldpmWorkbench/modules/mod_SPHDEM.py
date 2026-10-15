@@ -14,13 +14,14 @@
 ## Primary Authors: Matthew Troemner
 ## ===========================================================================
 ##
-## Description coming soon...
+## SPHDEM module for SPHDEM model generation
 ##
 ##
 ## ===========================================================================
 
 # pyright: reportMissingImports=false
 
+import ast
 import os
 import sys
 import time
@@ -74,6 +75,39 @@ from freecad.ldpmWorkbench.input.read_LDPMCSL_inputs                    import C
 np.seterr(divide='ignore', invalid='ignore')
 
 
+def _parameter_entries(para_file):
+    entries = {}
+    with open(Path(para_file), "r") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("//") or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+                value = value[1:-1]
+            entries[key.strip()] = value
+    return entries
+
+
+def _parameter_dimensions(raw_value):
+    try:
+        parsed = ast.literal_eval(raw_value)
+    except (SyntaxError, ValueError):
+        return []
+    if not isinstance(parsed, (list, tuple)):
+        return []
+    dimensions = []
+    for item in parsed:
+        text = str(item).strip().strip("'").strip('"')
+        number = text.split()[0] if text else ""
+        try:
+            dimensions.append(float(number))
+        except ValueError:
+            dimensions.append(text)
+    return dimensions
+
+
 
 #sys.executable = str(Path(App.ConfigGet('AppHomePath') + '/bin/python.exe'))
 multiprocessing.set_executable(sys.executable)
@@ -108,22 +142,31 @@ class inputWindow_SPHDEM:
         # Set initial output directory
         self.form[4].outputDir.setText(str(Path(App.ConfigGet('UserHomePath') + '/ldpmWorkbench')))
 
+        if hasattr(self.form[1], "geometryType"):
+            dogbone_idx = self.form[1].geometryType.findText("Dogbone")
+            if dogbone_idx >= 0:
+                self.form[1].geometryType.setItemIcon(
+                    dogbone_idx,
+                    QtGui.QIcon(os.path.join(ICONPATH, "Part_Dogbone.svg")),
+                )
+
         # Connect Open File Buttons
         QtCore.QObject.connect(self.form[0].readFileButton, QtCore.SIGNAL("clicked()"), self.openFilePara)
-        #QtCore.QObject.connect(self.form[0].readFileButton, QtCore.SIGNAL("clicked()"), self.openFileGeo)
+        QtCore.QObject.connect(self.form[1].readFileButton, QtCore.SIGNAL("clicked()"), self.openFileGeo)
         QtCore.QObject.connect(self.form[4].readDirButton, QtCore.SIGNAL("clicked()"), self.openDir)
 
         # Run generation for LDPM or CSL
         QtCore.QObject.connect(self.form[4].generate, QtCore.SIGNAL("clicked()"), self.generationDriver)
-        QtCore.QObject.connect(self.form[4].generateFast, QtCore.SIGNAL("clicked()"), self.generationDriverFast)
+        QtCore.QObject.connect(self.form[4].externalGenerate, QtCore.SIGNAL("clicked()"), self.generationDriverExternal)
         QtCore.QObject.connect(self.form[4].writePara, QtCore.SIGNAL("clicked()"), self.writeParameters)
 
 
 
     def getStandardButtons(self):
 
-        # Only show a close button
-        return int(QtWidgets.QDialogButtonBox.Close)
+        # Only show a close button (PySide2 int vs PySide6 enum)
+        btn = QtWidgets.QDialogButtonBox.Close
+        return btn.value if hasattr(btn, "value") else int(btn)
 
     def openFilePara(self):
 
@@ -137,6 +180,7 @@ class inputWindow_SPHDEM:
             App.Console.PrintMessage("Process aborted" + "\n")
         else:
             self.form[0].setupFile.setText(OpenName)
+            self.readParameters()
 
     def openFileGeo(self):
 
@@ -150,7 +194,7 @@ class inputWindow_SPHDEM:
             App.Console.PrintMessage("Process aborted" + "\n")
         else:
             self.form[1].cadName.setText("Import geometry listed below")
-            self.form[1].cadFile.setText(OpenName)
+            self.form[1].cadFile.setPlainText(OpenName)
 
     def openDir(self):
 
@@ -163,30 +207,30 @@ class inputWindow_SPHDEM:
         if OpenName == '':  # if not selected then Abort process
             App.Console.PrintMessage('Process aborted' + '\n')
         else:
-            self.form[5].outputDir.setText(OpenName)
+            self.form[4].outputDir.setText(OpenName)
 
         return OpenName
 
+    def _runGeneration(self, runMode):
+
+        tempPath = tempfile.gettempdir() + "/chronoConc" + str(int(np.random.uniform(1e7,1e8))) + '/'
+        os.mkdir(tempPath)
+
+        try:
+            mkParameters(self,"SPHDEM",tempPath)
+            driver_SPHDEM(self, runMode, tempPath)
+        except Exception as error:
+            App.Console.PrintError("Generation failed: " + str(error) + "\n")
+            self.form[4].statusWindow.setText("Status: ERROR - " + str(error))
+            self.form[4].progressBar.setValue(0)
+
     def generationDriver(self):
 
-        # Make a temporary path location
-        tempPath = tempfile.gettempdir() + "/chronoConc" + str(int(np.random.uniform(1e7,1e8))) + '/'
-        os.mkdir(tempPath)
+        self._runGeneration(True)
 
-        fastGen = False
-        mkParameters(self,"SPHDEM",tempPath)
-        driver_SPHDEM(self,fastGen,tempPath)
+    def generationDriverExternal(self):
 
-    def generationDriverFast(self):
-
-        # Make a temporary path location
-        tempPath = tempfile.gettempdir() + "/chronoConc" + str(int(np.random.uniform(1e7,1e8))) + '/'
-        os.mkdir(tempPath)
-
-        fastGen = True
-        mkParameters(self,"SPHDEM",tempPath)
-        driver_SPHDEM(self,fastGen,tempPath)
-
+        self._runGeneration("external")
 
     def writeParameters(self):
 
@@ -196,96 +240,95 @@ class inputWindow_SPHDEM:
     def readParameters(self):
 
         paraFile = self.form[0].setupFile.text()
+        if not paraFile or not os.path.isfile(paraFile):
+            App.Console.PrintError("Parameter file was not found.\n")
+            return
 
-        # Read parameters from file
-        with open(Path(paraFile), "r") as f:
-            for line in f:
-                if "numCPU" in line:
-                    numCPU = int(line.split("=")[1].strip())
-                elif "numIncrements" in line:
-                    numIncrements = int(line.split("=")[1].strip())
-                elif "maxIter" in line:
-                    maxIter = int(line.split("=")[1].strip())
-                elif "placementAlg" in line:
-                    placementAlg = line.split("=")[1].strip()
-                elif "geoType" in line:
-                    geoType = line.split("=")[1].strip()
-                elif "dimensions" in line:
-                    if line != []:
-                        # Change from format  ['17.00 mm', '2.00 mm', '5.00 mm'] to [17.00, 2.00, 5.00]
-                        dimensions = [float(x.split()[0].strip("'")) for x in line.split("=")[1].strip().strip("[").strip("]").split(",")]
-                elif "cadFile" in line:
-                    cadFile = line.split("=")[1].strip()
-                elif "minPar" in line:
-                    minPar = float(line.split("=")[1].strip())
-                elif "maxPar" in line:
-                    maxPar = float(line.split("=")[1].strip())
-                elif "fullerCoef" in line:
-                    fullerCoef = float(line.split("=")[1].strip())
-                elif "sieveCurveDiameter" in line:
-                    sieveCurveDiameter = line.split("=")[1].strip()
-                elif "sieveCurvePassing" in line:
-                    sieveCurvePassing = line.split("=")[1].strip()
-                elif "particleOffsetCoef" in line or "minDistCoef" in line:
-                    minDistCoef = float(line.split("=")[1].strip())
-                elif "wcRatio" in line:
-                    wcRatio = float(line.split("=")[1].strip())
-                elif "densityWater" in line:
-                    densityWater = float(line.split("=")[1].strip())
-                elif "cementC" in line:
-                    cementC = float(line.split("=")[1].strip())
-                elif "flyashC" in line:
-                    flyashC = float(line.split("=")[1].strip())
-                elif "silicaC" in line:
-                    silicaC = float(line.split("=")[1].strip())
-                elif "scmC" in line:
-                    scmC = float(line.split("=")[1].strip())
-                elif "cementDensity" in line:
-                    cementDensity = float(line.split("=")[1].strip())
-                elif "flyashDensity" in line:
-                    flyashDensity = float(line.split("=")[1].strip())
-                elif "silicaDensity" in line:
-                    silicaDensity = float(line.split("=")[1].strip())
-                elif "scmDensity" in line:
-                    scmDensity = float(line.split("=")[1].strip())
-                elif "airFrac1" in line:
-                    airFrac1 = float(line.split("=")[1].strip())
-                elif "outputDir" in line:
-                    outputDir = line.split("=")[1].strip()
+        params = _parameter_entries(paraFile)
 
-        if "minDistCoef" not in locals():
-            minDistCoef = 0.0
-        # Write parameters to input panel
+        def _as_int(val, default=0):
+            try:
+                return int(float(str(val).strip()))
+            except (TypeError, ValueError):
+                return default
+
+        def _as_float(val, default=0.0):
+            try:
+                return float(str(val).strip())
+            except (TypeError, ValueError):
+                return default
+
+        numCPU = _as_int(params.get("numCPU", self.form[0].numCPUbox.value()), default=self.form[0].numCPUbox.value())
+        numIncrements = _as_int(params.get("numIncrements", self.form[0].numPIncBox.value()), default=self.form[0].numPIncBox.value())
+        maxIter = _as_int(params.get("maxIter", self.form[0].numIncBox.value()), default=self.form[0].numIncBox.value())
+        placementAlg = params.get("placementAlg", self.form[0].placementAlg.currentText())
+        geoType = params.get("geoType", self.form[1].geometryType.currentText())
+        if geoType == "Prism":
+            geoType = "Arbitrary Prism"
+        elif geoType == "Import CAD or Mesh":
+            geoType = "Import CAD"
+        dimensions = _parameter_dimensions(params.get("dimensions", "[]"))
+        cadFile = params.get("cadFile", "")
+        modelType = params.get("modelType", self.form[4].modelType.currentText())
+        minPar = _as_float(params.get("minPar", self.form[2].minPar.value()))
+        maxPar = _as_float(params.get("maxPar", self.form[2].maxPar.value()))
+        fullerCoef = _as_float(params.get("fullerCoef", self.form[2].fullerCoef.value()))
+        sieveCurveDiameter = params.get("sieveCurveDiameter", self.form[2].sieveDiameters.text())
+        sieveCurvePassing = params.get("sieveCurvePassing", self.form[2].sievePassing.text())
+        minDistCoef = _as_float(params.get("particleOffsetCoef", params.get("minDistCoef", self.form[2].minDistCoef.value())))
+        wcRatio = _as_float(params.get("wcRatio", self.form[3].wcRatio.value()))
+        densityWater = _as_float(params.get("densityWater", self.form[3].waterDensity.text() or 0))
+        cementC = _as_float(params.get("cementC", self.form[3].cementContent.text() or 0))
+        flyashC = _as_float(params.get("flyashC", self.form[3].flyashContent.text() or 0))
+        silicaC = _as_float(params.get("silicaC", self.form[3].silicaContent.text() or 0))
+        scmC = _as_float(params.get("scmC", self.form[3].scmContent.text() or 0))
+        cementDensity = _as_float(params.get("cementDensity", self.form[3].cementDensity.text() or 0))
+        flyashDensity = _as_float(params.get("flyashDensity", self.form[3].flyashDensity.text() or 0))
+        silicaDensity = _as_float(params.get("silicaDensity", self.form[3].silicaDensity.text() or 0))
+        scmDensity = _as_float(params.get("scmDensity", self.form[3].scmDensity.text() or 0))
+        airFrac1 = _as_float(params.get("airFrac1", self.form[3].airFrac.value()))
+        outputDir = params.get("outputDir", self.form[4].outputDir.text())
+
         self.form[0].numCPUbox.setValue(numCPU)
         self.form[0].numPIncBox.setValue(numIncrements)
         self.form[0].numIncBox.setValue(maxIter)
         self.form[0].placementAlg.setCurrentText(placementAlg)
         self.form[1].geometryType.setCurrentText(geoType)
-        if geoType == "Box":
+        geoIndex = self.form[1].geometryType.currentIndex()
+        if geoIndex >= 0 and hasattr(self.form[1], "widgetStack2"):
+            self.form[1].widgetStack2.setCurrentIndex(geoIndex)
+        if geoType == "Box" and len(dimensions) >= 3:
             self.form[1].boxLength.setProperty('rawValue',(dimensions[0]))
             self.form[1].boxWidth.setProperty('rawValue',(dimensions[1]))
             self.form[1].boxHeight.setProperty('rawValue',(dimensions[2]))
-        elif geoType == "Cylinder":
+        elif geoType == "Cylinder" and len(dimensions) >= 2:
             self.form[1].cylinderHeight.setProperty('rawValue',(dimensions[0]))
             self.form[1].cylinderRadius.setProperty('rawValue',(dimensions[1]))
-        elif geoType == "Truncated Cone":
+        elif geoType == "Truncated Cone" and len(dimensions) >= 3:
+            self.form[1].truncConeHeight.setProperty('rawValue',(dimensions[0]))
+            self.form[1].truncConeRadBot.setProperty('rawValue',(dimensions[1]))
+            self.form[1].truncConeRadTop.setProperty('rawValue',(dimensions[2]))
+        elif geoType == "Cone" and len(dimensions) >= 2:
             self.form[1].coneHeight.setProperty('rawValue',(dimensions[0]))
             self.form[1].coneRadius1.setProperty('rawValue',(dimensions[1]))
-            self.form[1].coneRadius2.setProperty('rawValue',(dimensions[2]))
-        elif geoType == "Cone":
-            self.form[1].coneHeight.setProperty('rawValue',(dimensions[0]))
-            self.form[1].coneRadius1.setProperty('rawValue',(dimensions[1]))
-            self.form[1].coneRadius2.setProperty('rawValue',(dimensions[2]))
-        elif geoType == "Arbitrary Prism":
+        elif geoType == "Arbitrary Prism" and len(dimensions) >= 3:
             self.form[1].prismCircumradius.setProperty('rawValue',(dimensions[0]))
             self.form[1].prismHeight.setProperty('rawValue',(dimensions[1]))
-            self.form[1].prismPolygon.setProperty('rawValue',(dimensions[2]))
-        self.form[1].cadFile.setText(cadFile)
+            self.form[1].prismPolygon.setValue(int(dimensions[2]))
+        elif geoType == "Dogbone" and len(dimensions) >= 6:
+            self.form[1].dogboneLength.setProperty('rawValue',(dimensions[0]))
+            self.form[1].dogboneWidth.setProperty('rawValue',(dimensions[1]))
+            self.form[1].dogboneThickness.setProperty('rawValue',(dimensions[2]))
+            self.form[1].gaugeLength.setProperty('rawValue',(dimensions[3]))
+            self.form[1].gaugeWidth.setProperty('rawValue',(dimensions[4]))
+            self.form[1].dogboneType.setCurrentText(str(dimensions[5]))
+        self.form[1].cadFile.setPlainText(cadFile)
+        self.form[4].modelType.setCurrentText(modelType)
         self.form[2].minPar.setValue(minPar)
         self.form[2].maxPar.setValue(maxPar)
         self.form[2].fullerCoef.setValue(fullerCoef)
-        self.form[2].sieveDiameters.setText(str(sieveCurveDiameter))
-        self.form[2].sievePassing.setText(str(sieveCurvePassing))
+        self.form[2].sieveDiameters.setText(sieveCurveDiameter)
+        self.form[2].sievePassing.setText(sieveCurvePassing)
         self.form[2].minDistCoef.setValue(minDistCoef)
         self.form[3].wcRatio.setValue(wcRatio)
         self.form[3].waterDensity.setText(str(densityWater))

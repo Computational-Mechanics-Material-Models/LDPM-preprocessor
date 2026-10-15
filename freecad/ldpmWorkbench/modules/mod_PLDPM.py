@@ -10,7 +10,7 @@
 ##
 ## ===========================================================================
 ##
-## Description coming soon...
+## PLDPM module for Poly-LDPM model generation
 ##
 ## ===========================================================================
 
@@ -68,7 +68,7 @@ from freecad.ldpmWorkbench.generation.gen_LDPMCSL_analysis              import g
 
 
 # Importing: input
-from freecad.ldpmWorkbench.input.read_LDPMCSL_inputs                    import read_LDPMCSL_inputs, GEOMETRY_FILE_DIALOG_FILTER
+from freecad.ldpmWorkbench.input.read_LDPMCSL_inputs                    import read_LDPMCSL_inputs, GEOMETRY_FILE_DIALOG_FILTER, PROFILE_FILE_DIALOG_FILTER
 
 # Importing: output
 from freecad.ldpmWorkbench.output.mkVtk_particles                       import mkVtk_particles
@@ -82,6 +82,11 @@ from freecad.ldpmWorkbench.output.mkData_LDPMCSL_facets                 import m
 from freecad.ldpmWorkbench.output.mkData_LDPMCSL_facetsVertices         import mkData_LDPMCSL_facetsVertices
 from freecad.ldpmWorkbench.output.mkData_particles                      import mkData_particles
 from freecad.ldpmWorkbench.output.mkParameters                          import mkParameters
+from freecad.ldpmWorkbench.generation.gen_mesh_preview                  import (
+    find_latest_mesh_preview,
+    run_mesh_preview,
+)
+from freecad.ldpmWorkbench.modules.mod_MeshPreview                      import launch_mesh_preview
 
 
 
@@ -106,6 +111,7 @@ class inputWindow_PLDPM:
         self.form.append(cwloadUIfile("ui_PLDPM_particles.ui"))        
         self.form.append(cwloadUIfile("ui_PLDPM_mixDesign.ui"))          
         self.form.append(cwloadUIfile("ui_PLDPM_additionalPara.ui"))
+        self.form.append(cwloadUIfile("ui_PLDPM_modelPreview.ui"))
         self.form.append(cwloadUIfile("ui_PLDPM_generation.ui"))
         self.form.append(cwloadUIfile("ui_PLDPM_debugging.ui"))
 
@@ -115,19 +121,29 @@ class inputWindow_PLDPM:
         self.form[2].setWindowTitle("Particles")        
         self.form[3].setWindowTitle("Mix Design")
         self.form[4].setWindowTitle("Multimaterial Parameters")
-        self.form[5].setWindowTitle("Model Generation")
-        self.form[6].setWindowTitle("Generate Single Tet")
+        self.form[5].setWindowTitle("Mesh Preview")
+        self.form[6].setWindowTitle("Model Generation")
+        self.form[7].setWindowTitle("Generate Single Tet")
 
         cwloadUIicon(self.form[0],"FEM_MaterialMechanicalNonlinear.svg")
         cwloadUIicon(self.form[1],"PartDesign_AdditiveBox.svg")
         cwloadUIicon(self.form[2],"Arch_Material_Group.svg")
         cwloadUIicon(self.form[3],"FEM_ConstraintFlowVelocity.svg")
         cwloadUIicon(self.form[4],"PartDesign_MultiTransform.svg")
-        cwloadUIicon(self.form[5],"p-ldpm.svg")
-        cwloadUIicon(self.form[6],"PartDesign_Sprocket.svg")
+        cwloadUIicon(self.form[5],"mesh_preview.svg")
+        cwloadUIicon(self.form[6],"p-ldpm.svg")
+        cwloadUIicon(self.form[7],"PartDesign_Sprocket.svg")
 
         # Set initial output directory
-        self.form[5].outputDir.setText(str(Path(App.ConfigGet('UserHomePath') + '/ldpmWorkbench')))
+        self.form[6].outputDir.setText(str(Path(App.ConfigGet('UserHomePath') + '/ldpmWorkbench')))
+
+        if hasattr(self.form[1], "geometryType"):
+            dogbone_idx = self.form[1].geometryType.findText("Dogbone")
+            if dogbone_idx >= 0:
+                self.form[1].geometryType.setItemIcon(
+                    dogbone_idx,
+                    QtGui.QIcon(os.path.join(ICONPATH, "Part_Dogbone.svg")),
+                )
         
         # Initialize sketch list for path
         self.updatePathSketchList()
@@ -153,7 +169,7 @@ class inputWindow_PLDPM:
             QtCore.QObject.connect(self.form[1].sweep3dpPathSketch, QtCore.SIGNAL("currentIndexChanged(int)"), self.onPathSketchSelected)
         if hasattr(self.form[1], 'sweep3dpNumSlicesRaster'):
             QtCore.QObject.connect(self.form[1].sweep3dpNumSlicesRaster, QtCore.SIGNAL("valueChanged(int)"), self.onRasterNumSlicesChanged)
-        QtCore.QObject.connect(self.form[5].readDirButton, QtCore.SIGNAL("clicked()"), self.openDir)
+        QtCore.QObject.connect(self.form[6].readDirButton, QtCore.SIGNAL("clicked()"), self.openDir)
         if hasattr(self.form[4], 'readMultiMatFile'):
             QtCore.QObject.connect(self.form[4].readMultiMatFile, QtCore.SIGNAL("clicked()"), self.openMultiMatFile)
         if hasattr(self.form[4], 'readAggFile'):
@@ -171,14 +187,16 @@ class inputWindow_PLDPM:
             self.onMixPhaseSelectChanged(self.form[3].mixPhaseSelect.currentIndex())
 
         # Run generation for LDPM or CSL
-        QtCore.QObject.connect(self.form[5].generate, QtCore.SIGNAL("clicked()"), self.generationDriver)
-        QtCore.QObject.connect(self.form[5].generateFast, QtCore.SIGNAL("clicked()"), self.generationDriverFast)
-        QtCore.QObject.connect(self.form[5].externalGenerate, QtCore.SIGNAL("clicked()"), self.generationDriverExternal)
-        QtCore.QObject.connect(self.form[5].writePara, QtCore.SIGNAL("clicked()"), self.writeParameters)
+        QtCore.QObject.connect(self.form[6].generate, QtCore.SIGNAL("clicked()"), self.generationDriver)
+        QtCore.QObject.connect(self.form[6].generateFast, QtCore.SIGNAL("clicked()"), self.generationDriverFast)
+        QtCore.QObject.connect(self.form[6].externalGenerate, QtCore.SIGNAL("clicked()"), self.generationDriverExternal)
+        QtCore.QObject.connect(self.form[6].writePara, QtCore.SIGNAL("clicked()"), self.writeParameters)
+        QtCore.QObject.connect(self.form[5].generateMesh, QtCore.SIGNAL("clicked()"), self.generateMeshPreview)
+        QtCore.QObject.connect(self.form[5].openInViewer, QtCore.SIGNAL("clicked()"), self.openMeshPreviewViewer)
 
         # Run debugging generation of single tetrahedron
-        QtCore.QObject.connect(self.form[6].generate_reg, QtCore.SIGNAL("clicked()"), self.debugGenerateRegTet)
-        QtCore.QObject.connect(self.form[6].generate_irreg, QtCore.SIGNAL("clicked()"), self.debugGenerateIrregTet)
+        QtCore.QObject.connect(self.form[7].generate_reg, QtCore.SIGNAL("clicked()"), self.debugGenerateRegTet)
+        QtCore.QObject.connect(self.form[7].generate_irreg, QtCore.SIGNAL("clicked()"), self.debugGenerateIrregTet)
 
 
 
@@ -202,12 +220,12 @@ class inputWindow_PLDPM:
             print(f"Generation failed: {e}")
             App.Console.PrintError(f"Generation failed: {e}\n")
             # Update UI to show error
-            self.form[5].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[5].progressBar.setValue(0)
+            self.form[6].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[6].progressBar.setValue(0)
         except Exception as e:
             App.Console.PrintError(f"Generation failed: {e}\n")
-            self.form[5].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[5].progressBar.setValue(0)
+            self.form[6].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[6].progressBar.setValue(0)
 
     def generationDriverFast(self):
 
@@ -222,12 +240,12 @@ class inputWindow_PLDPM:
         except RuntimeError as e:
             print(f"Generation failed: {e}")
             App.Console.PrintError(f"Generation failed: {e}\n")
-            self.form[5].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[5].progressBar.setValue(0)
+            self.form[6].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[6].progressBar.setValue(0)
         except Exception as e:
             App.Console.PrintError(f"Generation failed: {e}\n")
-            self.form[5].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[5].progressBar.setValue(0)
+            self.form[6].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[6].progressBar.setValue(0)
 
 
     def generationDriverExternal(self):
@@ -243,23 +261,32 @@ class inputWindow_PLDPM:
         except Exception:
             pass
 
+        mpi_widget = getattr(self.form[0], "mpiToggle", None)
+        previous_mpi = None
+        if mpi_widget is not None:
+            previous_mpi = mpi_widget.currentText()
+            mpi_widget.setCurrentText("Off")
         try:
             driver_LDPMCSL(self, "external", tempPath)
         except RuntimeError as e:
             print(f"External generation failed: {e}")
             App.Console.PrintError(f"External generation failed: {e}\n")
-            self.form[5].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[5].progressBar.setValue(0)
+            self.form[6].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[6].progressBar.setValue(0)
         except Exception as e:
             App.Console.PrintError(f"External generation failed: {e}\n")
-            self.form[5].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[5].progressBar.setValue(0)
+            self.form[6].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[6].progressBar.setValue(0)
+        finally:
+            if mpi_widget is not None and previous_mpi is not None:
+                mpi_widget.setCurrentText(previous_mpi)
 
 
     def getStandardButtons(self):
 
-        # Only show a close button
-        return int(QtWidgets.QDialogButtonBox.Close)
+        # Only show a close button (PySide2 int vs PySide6 enum)
+        btn = QtWidgets.QDialogButtonBox.Close
+        return btn.value if hasattr(btn, "value") else int(btn)
 
     def selectGeometry(self):
             
@@ -308,13 +335,8 @@ class inputWindow_PLDPM:
     def openProfileFile(self):
 
         path = App.ConfigGet("UserHomePath")
-        filetype = (
-            "DXF format        (*.dxf);;"
-            "All Files         (*.*)"
-        )
-
         OpenName, _ = QtWidgets.QFileDialog.getOpenFileName(
-            None, "Read a profile sketch file (DXF format only - must be closed loop)", path, filetype
+            None, "Read a profile sketch (closed loop, XZ or YZ plane)", path, PROFILE_FILE_DIALOG_FILTER
         )
         if OpenName == "":  # if the name file is not selected then Abort process
             App.Console.PrintMessage("Process aborted" + "\n")
@@ -469,7 +491,7 @@ class inputWindow_PLDPM:
         if OpenName == '':  # if not selected then Abort process
             App.Console.PrintMessage('Process aborted' + '\n')
         else:
-            self.form[5].outputDir.setText(OpenName)
+            self.form[6].outputDir.setText(OpenName)
 
         return OpenName
 
@@ -502,6 +524,30 @@ class inputWindow_PLDPM:
     def writeParameters(self):
 
         mkParameters(self,"LDPMCSL","writeOnly",module="PLDPM")
+
+    def generateMeshPreview(self):
+        try:
+            self._lastMeshPreview = run_mesh_preview(self, "PLDPM")
+        except Exception as e:
+            self._lastMeshPreview = None
+            self.form[6].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[6].progressBar.setValue(0)
+            App.Console.PrintError("Mesh preview failed: %s\n" % e)
+
+    def openMeshPreviewViewer(self):
+        info = getattr(self, "_lastMeshPreview", None)
+        if info is None or not info.get("geometry") or not os.path.isfile(info["geometry"]):
+            info = find_latest_mesh_preview(self.form[6].outputDir.text())
+        if info is None or not info.get("geometry") or not os.path.isfile(info["geometry"]):
+            self.form[6].statusWindow.setText("Status: ERROR - No mesh preview folder found.")
+            App.Console.PrintError("No mesh preview folder found.\n")
+            return
+        self._lastMeshPreview = info
+        launch_mesh_preview(
+            geometry=info.get("geometry"),
+            interfaces=info.get("interfaces"),
+            auto_preview=True,
+        )
 
     # Read parameters from file and write to input panel in FreeCAD
     def readParameters(self):
@@ -662,11 +708,11 @@ class inputWindow_PLDPM:
         particleOffsetCoef = _as_float(params.get("particleOffsetCoef", 0.2), default=0.2)
         periodicToggle = params.get("periodicToggle", "Off")
 
-        outputDir = params.get("outputDir", self.form[5].outputDir.text())
-        dataFilesGen = _as_bool(params.get("dataFilesGen", self.form[5].dataFilesGen.isChecked()), default=self.form[5].dataFilesGen.isChecked())
-        visFilesGen = _as_bool(params.get("visFilesGen", self.form[5].visFilesGen.isChecked()), default=self.form[5].visFilesGen.isChecked())
-        singleTetGen = _as_bool(params.get("singleTetGen", self.form[5].singleTetGen.isChecked()), default=self.form[5].singleTetGen.isChecked())
-        modelType = params.get("modelType", self.form[5].modelType.currentText())
+        outputDir = params.get("outputDir", self.form[6].outputDir.text())
+        dataFilesGen = _as_bool(params.get("dataFilesGen", self.form[6].dataFilesGen.isChecked()), default=self.form[6].dataFilesGen.isChecked())
+        visFilesGen = _as_bool(params.get("visFilesGen", self.form[6].visFilesGen.isChecked()), default=self.form[6].visFilesGen.isChecked())
+        singleTetGen = _as_bool(params.get("singleTetGen", self.form[6].singleTetGen.isChecked()), default=self.form[6].singleTetGen.isChecked())
+        modelType = params.get("modelType", self.form[6].modelType.currentText())
 
         # Write parameters to input panel
         self.form[0].constEQ.setCurrentText(constitutiveEQ)
@@ -690,6 +736,12 @@ class inputWindow_PLDPM:
         self.form[0].numPIncBox.setValue(numIncrements)
         self.form[0].numIncBox.setValue(maxIter)
         self.form[0].placementAlg.setCurrentText(placementAlg)
+        if hasattr(self.form[0], "mpiToggle"):
+            self.form[0].mpiToggle.setCurrentText(params.get("mpiToggle", self.form[0].mpiToggle.currentText()))
+        if hasattr(self.form[0], "mpiRank"):
+            self.form[0].mpiRank.setValue(_as_int(params.get("mpiRank", self.form[0].mpiRank.value()), default=self.form[0].mpiRank.value()))
+        if hasattr(self.form[0], "mpiNodes"):
+            self.form[0].mpiNodes.setValue(_as_int(params.get("mpiNodes", self.form[0].mpiNodes.value()), default=self.form[0].mpiNodes.value()))
         self.form[1].geometryType.setCurrentText(geoType)
         geo_idx = self.form[1].geometryType.currentIndex()
         if geo_idx >= 0 and hasattr(self.form[1], "widgetStack2"):
@@ -962,15 +1014,15 @@ class inputWindow_PLDPM:
             _mm_mode = particlePhaseMode if particlePhaseMode in (2, 3) else phaseMode
             _set_phase_combo(self.form[4].multiMatPhaseSelect, _mm_mode, select_offset=False, default_index=1)
             self.onMultiMatPhaseChanged(self.form[4].multiMatPhaseSelect.currentIndex())
-        self.form[5].outputDir.setText(outputDir)
-        if hasattr(self.form[5], "dataFilesGen"):
-            self.form[5].dataFilesGen.setChecked(bool(dataFilesGen))
-        if hasattr(self.form[5], "visFilesGen"):
-            self.form[5].visFilesGen.setChecked(bool(visFilesGen))
-        if hasattr(self.form[5], "singleTetGen"):
-            self.form[5].singleTetGen.setChecked(bool(singleTetGen))
-        if hasattr(self.form[5], "modelType"):
-            self.form[5].modelType.setCurrentText(modelType)
+        self.form[6].outputDir.setText(outputDir)
+        if hasattr(self.form[6], "dataFilesGen"):
+            self.form[6].dataFilesGen.setChecked(bool(dataFilesGen))
+        if hasattr(self.form[6], "visFilesGen"):
+            self.form[6].visFilesGen.setChecked(bool(visFilesGen))
+        if hasattr(self.form[6], "singleTetGen"):
+            self.form[6].singleTetGen.setChecked(bool(singleTetGen))
+        if hasattr(self.form[6], "modelType"):
+            self.form[6].modelType.setCurrentText(modelType)
 
 
     def debugGenerateRegTet(self):
@@ -986,7 +1038,7 @@ class inputWindow_PLDPM:
 
 
         # Make output directory if does not exist
-        outDir =  self.form[5].outputDir.text()
+        outDir =  self.form[6].outputDir.text()
         try:
             os.mkdir(outDir)
         except:
@@ -1017,7 +1069,7 @@ class inputWindow_PLDPM:
             cementDensity, flyashDensity, silicaDensity, scmDensity, airFrac1, \
             fillerC, fillerDensity, airFrac2,\
             htcToggle, htcLength,\
-            _, _, _, _, _, _, _, _, _, _, _, _,\
+            _, _, _, _, _, _, _, _, _, _, _, _, _,\
             multiMatToggle,aggFile,multiMatFile,multiMatRule,\
             grainAggMin, grainAggMax, grainAggFuller, grainAggSieveD, grainAggSieveP,\
             grainITZMin, grainITZMax, grainITZFuller, grainITZSieveD, grainITZSieveP,\
@@ -1050,9 +1102,9 @@ class inputWindow_PLDPM:
 
 
         # Generate analysis objects
-        self.form[5].statusWindow.setText("Status: Generating analysis objects.") 
+        self.form[6].statusWindow.setText("Status: Generating analysis objects.") 
         genAna = gen_LDPMCSL_analysis(analysisName,materialName)
-        self.form[5].progressBar.setValue(3) 
+        self.form[6].progressBar.setValue(3) 
 
         [allNodes,allTets,parDiameterList,materialList,minPar,geoName] = gen_LDPM_debugTet(type)
 
@@ -1060,7 +1112,7 @@ class inputWindow_PLDPM:
             gen_LDPMCSL_tesselation(allNodes,allTets,parDiameterList,minPar,geoName)   
 
 
-        self.form[5].progressBar.setValue(95) 
+        self.form[6].progressBar.setValue(95) 
 
         # Store values for unused features
         edgedata = 0
@@ -1074,10 +1126,10 @@ class inputWindow_PLDPM:
             allNodes,allTets,tetFacets,facetCenters,facetAreas,facetNormals,tetn1,\
             tetn2,materialList,multiMatRule,multiMaterial,cementStructure,edgeMaterialList,facetCellData,particleID)
 
-        self.form[5].progressBar.setValue(98) 
+        self.form[6].progressBar.setValue(98) 
 
 
-        self.form[5].statusWindow.setText("Status: Writing external facet data file.") 
+        self.form[6].statusWindow.setText("Status: Writing external facet data file.") 
 
         # Initialize counter for number of facet materials switched
         matSwitched = 0
@@ -1097,27 +1149,27 @@ class inputWindow_PLDPM:
         App.getDocument(App.ActiveDocument.Name).getObject(analysisName).addObject(App.getDocument(App.ActiveDocument.Name).getObject(dataFilesName))
         App.getDocument(App.ActiveDocument.Name).getObject(analysisName).addObject(App.getDocument(App.ActiveDocument.Name).getObject(visualFilesName))
 
-        self.form[5].statusWindow.setText("Status: Writing node data file.")
+        self.form[6].statusWindow.setText("Status: Writing node data file.")
 
         mkData_nodes(geoName,tempPath,allNodes)
 
-        self.form[5].statusWindow.setText("Status: Writing tet data file.")
+        self.form[6].statusWindow.setText("Status: Writing tet data file.")
 
         mkData_LDPMCSL_tets(geoName,tempPath,allTets)
 
-        self.form[5].statusWindow.setText("Status: Writing facet data file.")
+        self.form[6].statusWindow.setText("Status: Writing facet data file.")
 
         # If data files requested, generate Facet File
         mkData_LDPMCSL_facets(geoName,tempPath,facetData)
         mkData_LDPMCSL_facetsVertices(geoName,tempPath,tetFacets)
         #mkData_LDPMCSL_faceFacets(geoName,tempPath,surfaceNodes,surfaceFaces)
 
-        self.form[5].statusWindow.setText("Status: Writing particle data file.")
+        self.form[6].statusWindow.setText("Status: Writing particle data file.")
 
         # If data files requested, generate Particle Data File
         mkData_particles(allNodes,parDiameterList,geoName,tempPath)
 
-        self.form[5].statusWindow.setText("Status: Writing visualization files.")
+        self.form[6].statusWindow.setText("Status: Writing visualization files.")
 
         # If visuals requested, generate Particle VTK File
         mkVtk_particles(allNodes,parDiameterList,materialList,geoName,tempPath)
@@ -1224,7 +1276,7 @@ class inputWindow_PLDPM:
         Gui.getDocument(App.ActiveDocument.Name).getObject(geoName + '_para_facets_000').Transparency = 50
 
 
-        self.form[5].progressBar.setValue(100) 
+        self.form[6].progressBar.setValue(100) 
 
 
         # Switch to FEM GUI
