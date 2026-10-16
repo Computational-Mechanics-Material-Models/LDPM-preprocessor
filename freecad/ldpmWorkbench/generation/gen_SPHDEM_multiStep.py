@@ -35,8 +35,8 @@ import FreeCAD as App
 from calc_sieveCurve                                        import calc_sieveCurve
 from calc_parVolume                                         import calc_parVolume
 from gen_particleList                                       import gen_particleList
-from gen_particleMPI                                        import gen_particleMPI
-from check_particleOverlapMPI                               import check_particleOverlapMPI
+from gen_particleparallel                                   import gen_particleparallel
+from check_particleOverlapparallel                          import check_particleOverlapparallel
 from gen_particle                                           import gen_particle
 
 
@@ -110,7 +110,7 @@ def gen_SPHDEM_multiStep(tempPath, numCPU, numIncrements, maxIter, parOffset, ma
 
             process_pool = multiprocessing.Pool(numCPU)
 
-            outputMPI = process_pool.map(functools.partial(gen_particleMPI, surfaceNodes,maxParNum, minC, maxC, meshVertices, \
+            outputMPI = process_pool.map(functools.partial(gen_particleparallel, surfaceNodes,maxParNum, minC, maxC, meshVertices, \
                 meshTets, coord1,coord2,coord3,coord4,newMaxIter,maxIter,minPar,\
                 maxPar,parOffset,verbose,parDiameterList,maxEdgeLength,max_dist,internalNodes), parDiameterList[particlesPlaced:particlesPlaced+math.floor(len(parDiameterList)/numIncrements)])
 
@@ -137,7 +137,7 @@ def gen_SPHDEM_multiStep(tempPath, numCPU, numIncrements, maxIter, parOffset, ma
                 # Check if particle overlapping any just added particles (ignore first one placed)
                 if x > 0:
 
-                    overlap = check_particleOverlapMPI(nodeMPI[x,:],diameter[x],binMin,\
+                    overlap = check_particleOverlapparallel(nodeMPI[x,:],diameter[x],binMin,\
                         binMax,minPar,parOffset,nodeMPI[0:x],diameter[0:x])
 
                     if overlap == True:

@@ -14,7 +14,7 @@
 ## Primary Authors: Matthew Troemner
 ## ===========================================================================
 ##
-## Description coming soon...
+## LDPMCSL generation
 ##
 ##
 ## ===========================================================================
@@ -69,17 +69,21 @@ class genWindow_LDPMCSL:
     def __init__(self):
 
         self.form = []
+        self._bundle = None
 
         # Load UI's for Side Panel
+        self.form.append(cwloadUIfile("ui_LDPMCSL_importBundle.ui"))
         self.form.append(cwloadUIfile("ui_LDPMCSL_writeSimInfo.ui"))
         self.form.append(cwloadUIfile("ui_LDPMCSL_writeSimFiles.ui"))
 
         # Label, Load Icons, and Initialize Panels
-        self.form[0].setWindowTitle("Confirm Output")
-        self.form[1].setWindowTitle("Write File")
+        self.form[0].setWindowTitle("Import Mesh Bundle")
+        self.form[1].setWindowTitle("Confirm Output")
+        self.form[2].setWindowTitle("Write File")
 
         cwloadUIicon(self.form[0],"ldpmOutput.svg")
         cwloadUIicon(self.form[1],"ldpmOutput.svg")
+        cwloadUIicon(self.form[2],"ldpmOutput.svg")
 
 
         materialProps = [\
@@ -105,7 +109,7 @@ class genWindow_LDPMCSL:
 
 
         # Set initial output directory
-        self.form[1].outputDir.setText(str(Path(App.ConfigGet('UserHomePath') + '/ldpmWorkbench')))
+        self.form[2].outputDir.setText(str(Path(App.ConfigGet('UserHomePath') + '/ldpmWorkbench')))
 
         # Try to see if there is a material object in the document
         try:
@@ -116,7 +120,6 @@ class genWindow_LDPMCSL:
                 test = App.ActiveDocument.getObject("CSLmaterial")
                 self.elementType = "CSL"
             except:
-                App.Console.PrintMessage("No LDPM or CSL material found. Please create a material object and try again."+"\n")
                 self.elementType = "None"
                 self.numPartsLDPM,self.numPartsCSL = 0,0
                 modelInfo = []
@@ -198,21 +201,27 @@ class genWindow_LDPMCSL:
         if self.elementType == "LDPM":
             for i in range(self.numPartsLDPM):
                 meshName = self.elementType + "mesh" + str(i).zfill(3)
-                femesh=App.getDocument(App.ActiveDocument.Name).getObjectsByLabel(meshName)[0]
-                numNodes = femesh.FemMesh.NodeCount
-                numElements = femesh.FemMesh.TetraCount
-            modelInfo.append("Part " + str(i))
-            modelInfo.append("Number of Nodes: " + str(numNodes))
-            modelInfo.append("Number of Tets: " + str(numElements))
+                try:
+                    femesh=App.getDocument(App.ActiveDocument.Name).getObjectsByLabel(meshName)[0]
+                    numNodes = femesh.FemMesh.NodeCount
+                    numElements = femesh.FemMesh.TetraCount
+                except Exception:
+                    continue
+                modelInfo.append("Part " + str(i))
+                modelInfo.append("Number of Nodes: " + str(numNodes))
+                modelInfo.append("Number of Tets: " + str(numElements))
         elif self.elementType == "CSL":
             for i in range(self.numPartsCSL):
                 meshName = self.elementType + "mesh" + str(i).zfill(3)
-                femesh=App.getDocument(App.ActiveDocument.Name).getObjectsByLabel(meshName)[0]
-                numNodes = femesh.FemMesh.NodeCount
-                numElements = femesh.FemMesh.TetraCount
-            modelInfo.append("Part " + str(i))
-            modelInfo.append("Number of Nodes: " + str(numNodes))
-            modelInfo.append("Number of Tets: " + str(numElements))
+                try:
+                    femesh=App.getDocument(App.ActiveDocument.Name).getObjectsByLabel(meshName)[0]
+                    numNodes = femesh.FemMesh.NodeCount
+                    numElements = femesh.FemMesh.TetraCount
+                except Exception:
+                    continue
+                modelInfo.append("Part " + str(i))
+                modelInfo.append("Number of Nodes: " + str(numNodes))
+                modelInfo.append("Number of Tets: " + str(numElements))
 
 
         # Get Material Properties
@@ -236,18 +245,13 @@ class genWindow_LDPMCSL:
 
         
         # Display all LDPM/CSL input data in the side panel "Confirm Output"
-        self.form[0].statusWindow.setText(modelInfoStr)
-            
+        self._documentInfo = modelInfoStr
+        self.form[1].statusWindow.setText(modelInfoStr)
 
-
-        # Connect Open File Buttons
-        QtCore.QObject.connect(self.form[1].readDirButton, QtCore.SIGNAL("clicked()"), self.openDir)
-
-        # Run Project Chrono generation for LDPM or CSL
-        QtCore.QObject.connect(self.form[1].writeChrono, QtCore.SIGNAL("clicked()"), self.chronoGeneration)
-
-        # Run Abaqus generation for LDPM
-        QtCore.QObject.connect(self.form[1].writeAbaqus, QtCore.SIGNAL("clicked()"), self.abaqusGeneration)
+        QtCore.QObject.connect(self.form[0].bundleButton, QtCore.SIGNAL("clicked()"), self.importBundle)
+        QtCore.QObject.connect(self.form[2].readDirButton, QtCore.SIGNAL("clicked()"), self.openDir)
+        QtCore.QObject.connect(self.form[2].writeChrono, QtCore.SIGNAL("clicked()"), self.chronoGeneration)
+        QtCore.QObject.connect(self.form[2].writeAbaqus, QtCore.SIGNAL("clicked()"), self.abaqusGeneration)
 
 
     def getStandardButtons(self):
@@ -269,7 +273,7 @@ class genWindow_LDPMCSL:
         if OpenName == '':  # if not selected then Abort process
             App.Console.PrintMessage('Process aborted' + '\n')
         else:
-            self.form[5].outputDir.setText(OpenName)
+            self.form[2].outputDir.setText(OpenName)
 
         return OpenName
 
@@ -294,7 +298,7 @@ class genWindow_LDPMCSL:
         facetsFilename = partName + "-data-facets.dat"
 
         # Make output directory if does not exist
-        outDir =  self.form[1].outputDir.text()
+        outDir =  self.form[2].outputDir.text()
         try:
             os.mkdir(outDir)
         except:
@@ -381,117 +385,219 @@ class genWindow_LDPMCSL:
 
 
 
+    def _find_bundle_file(self, folder, suffix):
+        matches = sorted(Path(folder).glob("*" + suffix))
+        if not matches:
+            return None
+        return str(matches[0])
+
+    def _scan_bundle(self, folder):
+        names = (
+            ("nodes", "-data-nodes.dat"),
+            ("tets", "-data-tets.dat"),
+            ("facets", "-data-facets.dat"),
+            ("facetsVertices", "-data-facetsVertices.dat"),
+            ("faceFacets", "-data-faceFacets.dat"),
+            ("reinforcement", "-data-reinforcement.dat"),
+            ("fiber", "-data-fiberfacet.dat"),
+        )
+        found = {}
+        for key, suffix in names:
+            path = self._find_bundle_file(folder, suffix)
+            if path:
+                found[key] = path
+        return found
+
+    def _count_rows(self, path):
+        count = 0
+        if not path or not os.path.isfile(path):
+            return 0
+        with open(path) as handle:
+            for line in handle:
+                text = line.strip()
+                if text == "" or text.startswith("//") or text.startswith("#"):
+                    continue
+                count += 1
+        return count
+
+    def importBundle(self):
+        folder = QtWidgets.QFileDialog.getExistingDirectory(
+            None, "Import mesh bundle", App.ConfigGet("UserHomePath"), QtWidgets.QFileDialog.ShowDirsOnly
+        )
+        if folder == "":
+            App.Console.PrintMessage("Process aborted\n")
+            return
+        found = self._scan_bundle(folder)
+        if "nodes" not in found or "tets" not in found:
+            App.Console.PrintError("Mesh bundle needs a nodes file and a tets file.\n")
+            return
+        self._bundle = {"folder": folder, "files": found}
+        self.form[0].bundlePath.setText(folder)
+        self.form[1].statusWindow.setText(self._bundle_report(found))
+        App.Console.PrintMessage("Mesh bundle imported: %s\n" % folder)
+        for note in self._bundle_notes(found):
+            App.Console.PrintMessage(note + "\n")
+
+    def _bundle_notes(self, found):
+        notes = []
+        if "facets" in found and self._facet_flag_count(found["facets"]) > 1:
+            notes.append("Interfaces included")
+        if "reinforcement" in found:
+            notes.append("Reinforcement included")
+        if "fiber" in found:
+            notes.append("Fibers included")
+        return notes
+
+    def _facet_flag_count(self, path):
+        flags = set()
+        with open(path) as handle:
+            for line in handle:
+                text = line.strip()
+                if text == "" or text.startswith("//") or text.startswith("#"):
+                    continue
+                parts = text.split()
+                if len(parts) < 19:
+                    continue
+                mf_col = 23 if len(parts) in (24, 27) else 18
+                if mf_col >= len(parts):
+                    continue
+                try:
+                    flags.add(int(round(float(parts[mf_col]))))
+                except ValueError:
+                    continue
+                if len(flags) > 1:
+                    return len(flags)
+        return len(flags)
+
+    def _bundle_report(self, found):
+        lines = ["Imported mesh bundle"]
+        lines.append("Nodes: %d" % self._count_rows(found.get("nodes")))
+        lines.append("Tets: %d" % self._count_rows(found.get("tets")))
+        if "facets" in found:
+            lines.append("Facets: %d" % self._count_rows(found.get("facets")))
+        return "".join("<p>%s</p>" % line for line in lines)
+
+    def _set_write_status(self, text, progress):
+        message = "Status: " + str(text)
+        try:
+            self.form[2].statusWindow.setText(message)
+            self.form[2].progressBar.setValue(int(progress))
+        except Exception:
+            pass
+        App.Console.PrintMessage(message + "\n")
+        try:
+            Gui.updateGui()
+        except Exception:
+            pass
+
     def abaqusGeneration(self):
-        
-        # Print error and exit if no LDPM or CSL material found
-        if self.elementType != "LDPM" and self.elementType != "CSL":
-            App.Console.PrintMessage("No LDPM or CSL material found. Please create a material object and try again."+"\n")
+        bundle = self._bundle
+        if bundle is None and self.elementType != "LDPM":
+            self._set_write_status("No LDPM material found, and no mesh bundle is imported.", 0)
             return
-        
-        # Print error and exit if CSL material found
-        if self.elementType == "CSL":
-            App.Console.PrintMessage("CSL element not yet supported for Abaqus."+"\n")
+        if bundle is None and self.elementType == "CSL":
+            self._set_write_status("CSL element not yet supported for Abaqus.", 0)
             return
 
-        print('Writing files.')
-
+        self._set_write_status("Writing Abaqus input.", 15)
         partName = 'LDPMgeo000'
-
-        # Set element type and number of parts
-        elementType = self.elementType
-        numParts = max(self.numPartsLDPM,self.numPartsCSL)
-
-        # Set filenames
+        elementType = "LDPM" if bundle is not None else self.elementType
         nodesFilename = partName + "-data-nodes.dat"
         tetsFilename = partName + "-data-tets.dat"
         facetsFilename = partName + "-data-facets.dat"
-
-        # Make output directory if does not exist
-        outDir =  self.form[1].outputDir.text()
+        outDir = self.form[2].outputDir.text()
         try:
             os.mkdir(outDir)
-        except:
+        except Exception:
             pass
-
 
         i = 0
         outName = '/' + "abaqusPackage" + elementType + str(i).zfill(3)
         while os.path.isdir(Path(outDir + outName)):
-            i = i+1
+            i = i + 1
             outName = '/' + "abaqusPackage" + elementType + str(i).zfill(3)
-
         try:
             os.mkdir(outDir + outName)
-        except:
+        except Exception:
             pass
 
-        # Set analysis and material names
         analysisName = elementType + "analysis"
-        materialName = elementType + "material"
-
-        # Get locations of data files
         geoName = elementType + "geo" + str(0).zfill(3)
-        LDPMnodesDataLoc = Path(App.getDocument(App.ActiveDocument.Name).getObject("LDPMnodesData").getPropertyByName("Location"))
-        LDPMtetsDataLoc = Path(App.getDocument(App.ActiveDocument.Name).getObject("LDPMtetsData").getPropertyByName("Location"))
-        LDPMfacetsDataLoc = Path(App.getDocument(App.ActiveDocument.Name).getObject("LDPMfacetsData").getPropertyByName("Location"))
-        LDPMfacetsVerticesDataLoc = Path(App.getDocument(App.ActiveDocument.Name).getObject("LDPMfacetsVerticesData").getPropertyByName("Location"))
-        LDPMfaceFacetsDataLoc = Path(App.getDocument(App.ActiveDocument.Name).getObject("LDPMfaceFacetsData").getPropertyByName("Location"))
+        package = Path(outDir + outName)
 
+        if bundle is not None:
+            sources = bundle["files"]
+        else:
+            doc = App.getDocument(App.ActiveDocument.Name)
+            sources = {
+                "nodes": str(doc.getObject("LDPMnodesData").Location),
+                "tets": str(doc.getObject("LDPMtetsData").Location),
+                "facets": str(doc.getObject("LDPMfacetsData").Location),
+            }
+            vertices = doc.getObject("LDPMfacetsVerticesData")
+            faces = doc.getObject("LDPMfaceFacetsData")
+            reinf = doc.getObject("LDPMreinfData")
+            if vertices is not None:
+                sources["facetsVertices"] = str(vertices.Location)
+            if faces is not None:
+                sources["faceFacets"] = str(faces.Location)
+            if reinf is not None:
+                sources["reinforcement"] = str(reinf.Location)
+            fiber = self._find_bundle_file(Path(sources["nodes"]).parent, "-data-fiberfacet.dat")
+            if fiber:
+                sources["fiber"] = fiber
 
-        # Copy files to output directory
-        shutil.copyfile(LDPMnodesDataLoc, outDir + outName + "/" + partName + "-data-nodes.dat")
-        shutil.copyfile(LDPMtetsDataLoc, outDir + outName + "/" + partName + "-data-tets.dat")
-        shutil.copyfile(LDPMfacetsDataLoc, outDir + outName + "/" + partName + "-data-facets.dat")
-        shutil.copyfile(LDPMfacetsVerticesDataLoc, outDir + outName + "/" + partName + "-data-facetsVertices.dat")
-        shutil.copyfile(LDPMfaceFacetsDataLoc, outDir + outName + "/" + partName + "-data-faceFacets.dat")
+        copy_names = {
+            "nodes": nodesFilename,
+            "tets": tetsFilename,
+            "facets": facetsFilename,
+            "facetsVertices": partName + "-data-facetsVertices.dat",
+            "faceFacets": partName + "-data-faceFacets.dat",
+            "reinforcement": partName + "-data-reinforcement.dat",
+            "fiber": partName + "-data-fiberfacet.dat",
+        }
+        copied = {}
+        for key, dest_name in copy_names.items():
+            src = sources.get(key)
+            if not src or not os.path.isfile(src):
+                continue
+            dest = package / dest_name
+            shutil.copyfile(src, str(dest))
+            copied[key] = str(dest)
 
-
-        materialProps = [\
-            "Density",\
-            "CompressiveStrength",\
-            "ShearNormalCoupling",\
-            "InitialHardeningModulusRatio",\
-            "FinalHardeningModulusRatio",\
-            "DensificationRatio",\
-            "TransitionalStrainRatio",\
-            "ShearTensileStrengthRatio",\
-            "InitialInternalFrictionCoefficient",\
-            "SofteningExponent",\
-            "DeviatoricStrainRatio",\
-            "DeviatoricDamage",\
-            "FinalInternalFrictionCoefficient",\
-            "TransitionalNormalStress",\
-            "TensileStrength",\
-            "TensileCharacteristicLength",\
-            "NormalModulus",\
-            ]
-                
+        self._set_write_status("Mesh files copied.", 55)
+        materialProps = []
         materialPropsDesc = []
-        
         materialPropsValues = []
-
-        simProps = [\
-            "TotalTime",\
-            "TimestepSize",\
-            "NumberOfThreads",\
-            "NumberOutputSteps",\
-            ]
-
+        simProps = []
         simPropsValues = []
 
-
-        # Read material properties from model
-        for x in range(len(materialProps)):
-            materialPropsValues.append(App.getDocument(App.ActiveDocument.Name).getObject(materialName).getPropertyByName(materialProps[x]))
-
-
-        # Read simulation properties from model
-        for x in range(len(simProps)):
-            simPropsValues.append(App.getDocument(App.ActiveDocument.Name).getObject(analysisName).getPropertyByName(simProps[x]))
-
-        # Make Abaqus input file
-        mkAbaqusInput(elementType, analysisName, materialProps, materialPropsDesc, materialPropsValues, simProps, simPropsValues, \
-            nodesFilename, tetsFilename, facetsFilename, geoName, outDir, outName)
+        try:
+            mkAbaqusInput(
+                elementType, analysisName, materialProps, materialPropsDesc, materialPropsValues,
+                simProps, simPropsValues, nodesFilename, tetsFilename, facetsFilename, geoName, outDir, outName,
+                facetPath=copied.get("facets"),
+                reinforcementPath=copied.get("reinforcement"),
+                fiberPath=copied.get("fiber"),
+            )
+        except Exception as exc:
+            self._set_write_status("ERROR - %s" % exc, 0)
+            App.Console.PrintError("Abaqus input failed: %s\n" % exc)
+            return
+        inp_path = str(package / (geoName + "-mesh.inp"))
+        notes = []
+        if "facets" in copied and self._facet_flag_count(copied["facets"]) > 1:
+            notes.append("Interfaces included")
+        if "reinforcement" in copied:
+            notes.append("Reinforcement included")
+        if "fiber" in copied:
+            notes.append("Fibers included")
+        for note in notes:
+            App.Console.PrintMessage(note + "\n")
+        done = "Abaqus input written: " + inp_path
+        if notes:
+            done = done + " (" + ", ".join(notes) + ")"
+        self._set_write_status(done, 100)
 
         
     # What to do when "Close" Button Clicked

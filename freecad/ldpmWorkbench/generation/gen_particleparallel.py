@@ -14,7 +14,7 @@
 ## Primary Authors: Matthew Troemner
 ## ===========================================================================
 ##
-## This file contains the function to generate a particle via MPI and also 
+## This file contains the function to generate a particle in parallel and also 
 ## outputs the particle diameter and new maximum iterations.
 ##
 ## ===========================================================================
@@ -27,7 +27,7 @@ from freecad.ldpmWorkbench.generation.check_LDPMCSL_particleOverlap     import c
 from freecad.ldpmWorkbench.generation.check_LDPMCSL_particleInside      import check_LDPMCSL_particleInside
 
 
-def gen_particleMPI(facePoints,maxParNum,minC,maxC,\
+def gen_particleparallel(facePoints,maxParNum,minC,maxC,\
     vertices,tets,coord1,coord2,coord3,coord4,newMaxIter,maxIter,minPar,maxPar,\
     parOffset,verbose,parDiameterList,maxEdgeLength,max_dist,nodes,parDiameter):
 

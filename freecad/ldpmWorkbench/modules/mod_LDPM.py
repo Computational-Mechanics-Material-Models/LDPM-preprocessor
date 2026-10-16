@@ -10,7 +10,7 @@
 ##
 ## ===========================================================================
 ##
-## Description coming soon...
+## LDPM module for LDPM model generation
 ##
 ## ===========================================================================
 
@@ -69,7 +69,7 @@ from freecad.ldpmWorkbench.generation.gen_LDPMCSL_analysis              import g
 
 
 # Importing: input
-from freecad.ldpmWorkbench.input.read_LDPMCSL_inputs                    import read_LDPMCSL_inputs, GEOMETRY_FILE_DIALOG_FILTER
+from freecad.ldpmWorkbench.input.read_LDPMCSL_inputs                    import read_LDPMCSL_inputs, GEOMETRY_FILE_DIALOG_FILTER, PROFILE_FILE_DIALOG_FILTER
 
 # Importing: output
 from freecad.ldpmWorkbench.output.mkVtk_particles                       import mkVtk_particles
@@ -83,6 +83,11 @@ from freecad.ldpmWorkbench.output.mkData_LDPMCSL_facets                 import m
 from freecad.ldpmWorkbench.output.mkData_LDPMCSL_facetsVertices         import mkData_LDPMCSL_facetsVertices
 from freecad.ldpmWorkbench.output.mkData_particles                      import mkData_particles
 from freecad.ldpmWorkbench.output.mkParameters                          import mkParameters
+from freecad.ldpmWorkbench.generation.gen_mesh_preview                  import (
+    find_latest_mesh_preview,
+    run_mesh_preview,
+)
+from freecad.ldpmWorkbench.modules.mod_MeshPreview                      import launch_mesh_preview
 
 
 
@@ -110,6 +115,7 @@ class inputWindow_LDPMCSL:
         self.form.append(cwloadUIfile("periodicmeshPara.ui"))
         self.form.append(cwloadUIfile("ui_LDPMCSL_reinforcementPara.ui"))
         self.form.append(cwloadUIfile("ui_LDPMCSL_randomField.ui"))
+        self.form.append(cwloadUIfile("ui_LDPMCSL_modelPreview.ui"))
         self.form.append(cwloadUIfile("ui_LDPMCSL_generation.ui"))
         self.form.append(cwloadUIfile("ui_LDPMCSL_debugging.ui"))
 
@@ -122,8 +128,9 @@ class inputWindow_LDPMCSL:
         self.form[5].setWindowTitle("Periodic Mesh Parameters")
         self.form[6].setWindowTitle("Reinforcement Parameters")
         self.form[7].setWindowTitle("Random Field")
-        self.form[8].setWindowTitle("Model Generation")
-        self.form[9].setWindowTitle("Generate Single Tet")
+        self.form[8].setWindowTitle("Mesh Preview")
+        self.form[9].setWindowTitle("Model Generation")
+        self.form[10].setWindowTitle("Generate Single Tet")
 
         cwloadUIicon(self.form[0],"FEM_MaterialMechanicalNonlinear.svg")
         cwloadUIicon(self.form[1],"PartDesign_AdditiveBox.svg")
@@ -133,11 +140,20 @@ class inputWindow_LDPMCSL:
         cwloadUIicon(self.form[5],"PartDesign_LinearPattern.svg")
         cwloadUIicon(self.form[6],"PartDesign_Line.svg")
         cwloadUIicon(self.form[7],"particles_input.svg")
-        cwloadUIicon(self.form[8],"ldpm.svg")
-        cwloadUIicon(self.form[9],"PartDesign_Sprocket.svg")
+        cwloadUIicon(self.form[8],"mesh_preview.svg")
+        cwloadUIicon(self.form[9],"ldpm.svg")
+        cwloadUIicon(self.form[10],"PartDesign_Sprocket.svg")
 
         # Set initial output directory
-        self.form[8].outputDir.setText(str(Path(App.ConfigGet('UserHomePath') + '/ldpmWorkbench')))
+        self.form[9].outputDir.setText(str(Path(App.ConfigGet('UserHomePath') + '/ldpmWorkbench')))
+
+        if hasattr(self.form[1], "geometryType"):
+            dogbone_idx = self.form[1].geometryType.findText("Dogbone")
+            if dogbone_idx >= 0:
+                self.form[1].geometryType.setItemIcon(
+                    dogbone_idx,
+                    QtGui.QIcon(os.path.join(ICONPATH, "Part_Dogbone.svg")),
+                )
 
         if hasattr(self.form[4], 'setMinimumHeight'):
             self.form[4].setMinimumHeight(150)
@@ -181,21 +197,23 @@ class inputWindow_LDPMCSL:
             QtCore.QObject.connect(self.form[6].orientationPathSketch_sweep3dp, QtCore.SIGNAL("currentIndexChanged(int)"), self.onOrientationPathSketchSelected)
         QtCore.QObject.connect(self.form[7].rfFieldDirButton, QtCore.SIGNAL("clicked()"), self.openRFFieldDir)
         QtCore.QObject.connect(self.form[7].rfSubmitAssignment, QtCore.SIGNAL("clicked()"), self.submitRFAssignment)
-        QtCore.QObject.connect(self.form[8].readDirButton, QtCore.SIGNAL("clicked()"), self.openDir)
+        QtCore.QObject.connect(self.form[9].readDirButton, QtCore.SIGNAL("clicked()"), self.openDir)
         if hasattr(self.form[6], "readFileButton"):
             QtCore.QObject.connect(self.form[6].readFileButton, QtCore.SIGNAL("clicked()"), self.openFiberFile)
         if hasattr(self.form[1], 'sweep3dpNumSlicesRaster'):
             self.onRasterNumSlicesChanged(self.form[1].sweep3dpNumSlicesRaster.value())
 
         # Run generation for LDPM or CSL
-        QtCore.QObject.connect(self.form[8].generate, QtCore.SIGNAL("clicked()"), self.generationDriver)
-        QtCore.QObject.connect(self.form[8].generateFast, QtCore.SIGNAL("clicked()"), self.generationDriverFast)
-        QtCore.QObject.connect(self.form[8].externalGenerate, QtCore.SIGNAL("clicked()"), self.generationDriverExternal)
-        QtCore.QObject.connect(self.form[8].writePara, QtCore.SIGNAL("clicked()"), self.writeParameters)
+        QtCore.QObject.connect(self.form[9].generate, QtCore.SIGNAL("clicked()"), self.generationDriver)
+        QtCore.QObject.connect(self.form[9].generateFast, QtCore.SIGNAL("clicked()"), self.generationDriverFast)
+        QtCore.QObject.connect(self.form[9].externalGenerate, QtCore.SIGNAL("clicked()"), self.generationDriverExternal)
+        QtCore.QObject.connect(self.form[9].writePara, QtCore.SIGNAL("clicked()"), self.writeParameters)
+        QtCore.QObject.connect(self.form[8].generateMesh, QtCore.SIGNAL("clicked()"), self.generateMeshPreview)
+        QtCore.QObject.connect(self.form[8].openInViewer, QtCore.SIGNAL("clicked()"), self.openMeshPreviewViewer)
 
         # Run debugging generation of single tetrahedron
-        QtCore.QObject.connect(self.form[9].generate_reg, QtCore.SIGNAL("clicked()"), self.debugGenerateRegTet)
-        QtCore.QObject.connect(self.form[9].generate_irreg, QtCore.SIGNAL("clicked()"), self.debugGenerateIrregTet)
+        QtCore.QObject.connect(self.form[10].generate_reg, QtCore.SIGNAL("clicked()"), self.debugGenerateRegTet)
+        QtCore.QObject.connect(self.form[10].generate_irreg, QtCore.SIGNAL("clicked()"), self.debugGenerateIrregTet)
 
 
 
@@ -246,19 +264,19 @@ class inputWindow_LDPMCSL:
         if not field_dir:
             msg = "Random Field is On: select a Random Field input folder."
             App.Console.PrintMessage(msg + "\n")
-            self.form[8].statusWindow.setText(f"Status: ERROR - {msg}")
+            self.form[9].statusWindow.setText(f"Status: ERROR - {msg}")
             return False
         if not os.path.isdir(field_dir):
             msg = f"Random Field is On: folder not found: {field_dir}"
             App.Console.PrintMessage(msg + "\n")
-            self.form[8].statusWindow.setText(f"Status: ERROR - {msg}")
+            self.form[9].statusWindow.setText(f"Status: ERROR - {msg}")
             return False
 
         assignment_text = rf_form.rfAssignmentList.toPlainText().strip()
         if not assignment_text:
             msg = "Random Field is On: submit at least one Sample > Realization assignment."
             App.Console.PrintMessage(msg + "\n")
-            self.form[8].statusWindow.setText(f"Status: ERROR - {msg}")
+            self.form[9].statusWindow.setText(f"Status: ERROR - {msg}")
             return False
 
         n_samples = max(1, int(self.form[0].numSampleBox.value()))
@@ -266,13 +284,13 @@ class inputWindow_LDPMCSL:
         if n_realz is None:
             msg = "Random Field is On: random_variables file not found in RF folder."
             App.Console.PrintMessage(msg + "\n")
-            self.form[8].statusWindow.setText(f"Status: ERROR - {msg}")
+            self.form[9].statusWindow.setText(f"Status: ERROR - {msg}")
             return False
 
         job_plan, err = self._parseRFAssignments(assignment_text, n_samples, n_realz)
         if err:
             App.Console.PrintMessage(err + "\n")
-            self.form[8].statusWindow.setText(f"Status: ERROR - {err}")
+            self.form[9].statusWindow.setText(f"Status: ERROR - {err}")
             return False
 
         self._rfJobPlan = job_plan
@@ -314,12 +332,12 @@ class inputWindow_LDPMCSL:
             print(f"Generation failed: {e}")
             App.Console.PrintError(f"Generation failed: {e}\n")
             # Update UI to show error
-            self.form[8].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[8].progressBar.setValue(0)
+            self.form[9].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[9].progressBar.setValue(0)
         except Exception as e:
             App.Console.PrintError(f"Generation failed: {e}\n")
-            self.form[8].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[8].progressBar.setValue(0)
+            self.form[9].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[9].progressBar.setValue(0)
 
     def generationDriverFast(self):
 
@@ -338,12 +356,12 @@ class inputWindow_LDPMCSL:
         except RuntimeError as e:
             print(f"Generation failed: {e}")
             App.Console.PrintError(f"Generation failed: {e}\n")
-            self.form[8].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[8].progressBar.setValue(0)
+            self.form[9].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[9].progressBar.setValue(0)
         except Exception as e:
             App.Console.PrintError(f"Generation failed: {e}\n")
-            self.form[8].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[8].progressBar.setValue(0)
+            self.form[9].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[9].progressBar.setValue(0)
 
     def generationDriverExternal(self):
 
@@ -366,12 +384,12 @@ class inputWindow_LDPMCSL:
         except RuntimeError as e:
             print(f"External generation failed: {e}")
             App.Console.PrintError(f"External generation failed: {e}\n")
-            self.form[8].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[8].progressBar.setValue(0)
+            self.form[9].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[9].progressBar.setValue(0)
         except Exception as e:
             App.Console.PrintError(f"External generation failed: {e}\n")
-            self.form[8].statusWindow.setText(f"Status: ERROR - {str(e)}")
-            self.form[8].progressBar.setValue(0)
+            self.form[9].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[9].progressBar.setValue(0)
 
 
     def getStandardButtons(self):
@@ -427,13 +445,8 @@ class inputWindow_LDPMCSL:
     def openProfileFile(self):
 
         path = App.ConfigGet("UserHomePath")
-        filetype = (
-            "DXF format        (*.dxf);;"
-            "All Files         (*.*)"
-        )
-
         OpenName, _ = QtWidgets.QFileDialog.getOpenFileName(
-            None, "Read a profile sketch file (DXF format only - must be closed loop)", path, filetype
+            None, "Read a profile sketch (closed loop, XZ or YZ plane)", path, PROFILE_FILE_DIALOG_FILTER
         )
         if OpenName == "":  # if the name file is not selected then Abort process
             App.Console.PrintMessage("Process aborted" + "\n")
@@ -562,7 +575,7 @@ class inputWindow_LDPMCSL:
         if OpenName == '':  # if not selected then Abort process
             App.Console.PrintMessage('Process aborted' + '\n')
         else:
-            self.form[8].outputDir.setText(OpenName)
+            self.form[9].outputDir.setText(OpenName)
 
         return OpenName
 
@@ -614,6 +627,30 @@ class inputWindow_LDPMCSL:
     def writeParameters(self):
 
         mkParameters(self,"LDPMCSL","writeOnly",module="LDPM")
+
+    def generateMeshPreview(self):
+        try:
+            self._lastMeshPreview = run_mesh_preview(self, "LDPM")
+        except Exception as e:
+            self._lastMeshPreview = None
+            self.form[9].statusWindow.setText(f"Status: ERROR - {str(e)}")
+            self.form[9].progressBar.setValue(0)
+            App.Console.PrintError("Mesh preview failed: %s\n" % e)
+
+    def openMeshPreviewViewer(self):
+        info = getattr(self, "_lastMeshPreview", None)
+        if info is None or not info.get("geometry") or not os.path.isfile(info["geometry"]):
+            info = find_latest_mesh_preview(self.form[9].outputDir.text())
+        if info is None or not info.get("geometry") or not os.path.isfile(info["geometry"]):
+            self.form[9].statusWindow.setText("Status: ERROR - No mesh preview folder found.")
+            App.Console.PrintError("No mesh preview folder found.\n")
+            return
+        self._lastMeshPreview = info
+        launch_mesh_preview(
+            geometry=info.get("geometry"),
+            interfaces=info.get("interfaces"),
+            auto_preview=True,
+        )
 
     # Read parameters from file and write to input panel in FreeCAD
     def readParameters(self):
@@ -729,7 +766,11 @@ class inputWindow_LDPMCSL:
 
         orientationPathType_sweep3dp = _as_int(params.get("orientationPathType_sweep3dp", 0), default=0)
         orientationPathSketchName_sweep3dp = params.get("orientationPathSketchName_sweep3dp", "")
-        orientationSegments_sweep3dp = _as_int(params.get("orientationSegments_sweep3dp", 36), default=36)
+        orientationSegmentLength_sweep3dp = _as_float(params.get("orientationSegmentLength_sweep3dp", params.get("orientationSegments_sweep3dp", 10.0)), default=10.0)
+        if "orientationSegmentLength_sweep3dp" not in params and "orientationSegments_sweep3dp" in params:
+            orientationSegmentLength_sweep3dp = 10.0
+        if orientationSegmentLength_sweep3dp <= 0:
+            orientationSegmentLength_sweep3dp = 10.0
 
         multiMatToggle = params.get("multiMatToggle", "Off")
         aggFile = params.get("aggFile", "")
@@ -756,11 +797,11 @@ class inputWindow_LDPMCSL:
 
         particleOffsetCoef = _as_float(params.get("particleOffsetCoef", 0.2), default=0.2)
 
-        outputDir = params.get("outputDir", self.form[8].outputDir.text())
-        dataFilesGen = _as_bool(params.get("dataFilesGen", self.form[8].dataFilesGen.isChecked()), default=self.form[8].dataFilesGen.isChecked())
-        visFilesGen = _as_bool(params.get("visFilesGen", self.form[8].visFilesGen.isChecked()), default=self.form[8].visFilesGen.isChecked())
-        singleTetGen = _as_bool(params.get("singleTetGen", self.form[8].singleTetGen.isChecked()), default=self.form[8].singleTetGen.isChecked())
-        modelType = params.get("modelType", self.form[8].modelType.currentText())
+        outputDir = params.get("outputDir", self.form[9].outputDir.text())
+        dataFilesGen = _as_bool(params.get("dataFilesGen", self.form[9].dataFilesGen.isChecked()), default=self.form[9].dataFilesGen.isChecked())
+        visFilesGen = _as_bool(params.get("visFilesGen", self.form[9].visFilesGen.isChecked()), default=self.form[9].visFilesGen.isChecked())
+        singleTetGen = _as_bool(params.get("singleTetGen", self.form[9].singleTetGen.isChecked()), default=self.form[9].singleTetGen.isChecked())
+        modelType = params.get("modelType", self.form[9].modelType.currentText())
 
         # Write parameters to input panel
         self.form[0].constEQ.setCurrentText(constitutiveEQ)
@@ -784,6 +825,12 @@ class inputWindow_LDPMCSL:
         self.form[0].numPIncBox.setValue(numIncrements)
         self.form[0].numIncBox.setValue(maxIter)
         self.form[0].placementAlg.setCurrentText(placementAlg)
+        if hasattr(self.form[0], "mpiToggle"):
+            self.form[0].mpiToggle.setCurrentText(params.get("mpiToggle", self.form[0].mpiToggle.currentText()))
+        if hasattr(self.form[0], "mpiRank"):
+            self.form[0].mpiRank.setValue(_as_int(params.get("mpiRank", self.form[0].mpiRank.value()), default=self.form[0].mpiRank.value()))
+        if hasattr(self.form[0], "mpiNodes"):
+            self.form[0].mpiNodes.setValue(_as_int(params.get("mpiNodes", self.form[0].mpiNodes.value()), default=self.form[0].mpiNodes.value()))
         self.form[1].geometryType.setCurrentText(geoType)
         geo_idx = self.form[1].geometryType.currentIndex()
         if geo_idx >= 0 and hasattr(self.form[1], "widgetStack2"):
@@ -1001,22 +1048,15 @@ class inputWindow_LDPMCSL:
                 self.form[6].fiberIntersections.setCurrentText(fiberIntersections)
             if hasattr(self.form[6], "fiberOutputFiles") and fiberOutputFiles:
                 self.form[6].fiberOutputFiles.setCurrentText(fiberOutputFiles)
-        if hasattr(self.form[6], 'orientationPathType_sweep3dp'):
-            self.form[6].orientationPathType_sweep3dp.setCurrentIndex(orientationPathType_sweep3dp)
-        if hasattr(self.form[6], 'orientationPathSketchName_sweep3dp'):
-            self.form[6].orientationPathSketchName_sweep3dp.setText(orientationPathSketchName_sweep3dp or "")
-            self.updateOrientationPathSketchList()
-        if hasattr(self.form[6], 'orientationSegments_sweep3dp'):
-            self.form[6].orientationSegments_sweep3dp.setValue(orientationSegments_sweep3dp)
-        self.form[8].outputDir.setText(outputDir)
-        if hasattr(self.form[8], "dataFilesGen"):
-            self.form[8].dataFilesGen.setChecked(bool(dataFilesGen))
-        if hasattr(self.form[8], "visFilesGen"):
-            self.form[8].visFilesGen.setChecked(bool(visFilesGen))
-        if hasattr(self.form[8], "singleTetGen"):
-            self.form[8].singleTetGen.setChecked(bool(singleTetGen))
-        if hasattr(self.form[8], "modelType"):
-            self.form[8].modelType.setCurrentText(modelType)
+        self.form[9].outputDir.setText(outputDir)
+        if hasattr(self.form[9], "dataFilesGen"):
+            self.form[9].dataFilesGen.setChecked(bool(dataFilesGen))
+        if hasattr(self.form[9], "visFilesGen"):
+            self.form[9].visFilesGen.setChecked(bool(visFilesGen))
+        if hasattr(self.form[9], "singleTetGen"):
+            self.form[9].singleTetGen.setChecked(bool(singleTetGen))
+        if hasattr(self.form[9], "modelType"):
+            self.form[9].modelType.setCurrentText(modelType)
 
 
     def debugGenerateRegTet(self):
@@ -1032,7 +1072,7 @@ class inputWindow_LDPMCSL:
 
 
         # Make output directory if does not exist
-        outDir =  self.form[8].outputDir.text()
+        outDir =  self.form[9].outputDir.text()
         try:
             os.mkdir(outDir)
         except:
@@ -1063,7 +1103,7 @@ class inputWindow_LDPMCSL:
             cementDensity, flyashDensity, silicaDensity, scmDensity, airFrac1, \
             fillerC, fillerDensity, airFrac2,\
             htcToggle, htcLength,\
-            fiberToggle, fiberCutting, fiberDiameter, fiberLength, fiberVol, fiberOrientation1, fiberOrientation2, fiberOrientation3, fiberPref, fiberFile, fiberIntersections, fiberOutputFiles,\
+            fiberToggle, fiberCutting, fiberDiameter, fiberLength, fiberVol, fiberOrientation1, fiberOrientation2, fiberOrientation3, fiberPref, fiberFile, fiberIntersections, fiberOutputFiles, fiberInterfaceIntersect,\
             multiMatToggle,aggFile,multiMatFile,multiMatRule,\
             grainAggMin, grainAggMax, grainAggFuller, grainAggSieveD, grainAggSieveP,\
             grainITZMin, grainITZMax, grainITZFuller, grainITZSieveD, grainITZSieveP,\
@@ -1073,7 +1113,7 @@ class inputWindow_LDPMCSL:
             particlePhaseMode, phaseMinPar, phaseMaxPar, phaseOffsetCoefList,\
             periodicToggle,particleOffsetCoef,\
             outputDir, dataFilesGen, visFilesGen, singleTetGen, modelType,\
-            orientationPathType_sweep3dp, orientationPathSketchName_sweep3dp, orientationSegments_sweep3dp] = read_LDPMCSL_inputs(self.form)
+            orientationPathType_sweep3dp, orientationPathSketchName_sweep3dp, orientationSegmentLength_sweep3dp] = read_LDPMCSL_inputs(self.form)
 
         if modelType in ["Confinement Shear Lattice (CSL) - LDPM Style ",\
                          "Confinement Shear Lattice (CSL) - Original"]:
@@ -1096,9 +1136,9 @@ class inputWindow_LDPMCSL:
 
 
         # Generate analysis objects
-        self.form[8].statusWindow.setText("Status: Generating analysis objects.") 
+        self.form[9].statusWindow.setText("Status: Generating analysis objects.") 
         genAna = gen_LDPMCSL_analysis(analysisName,materialName)
-        self.form[8].progressBar.setValue(3) 
+        self.form[9].progressBar.setValue(3) 
 
         [allNodes,allTets,parDiameterList,materialList,minPar,geoName] = gen_LDPM_debugTet(type)
 
@@ -1106,7 +1146,7 @@ class inputWindow_LDPMCSL:
             gen_LDPMCSL_tesselation(allNodes,allTets,parDiameterList,minPar,geoName)   
 
 
-        self.form[8].progressBar.setValue(95) 
+        self.form[9].progressBar.setValue(95) 
 
         # Store values for unused features
         edgedata = 0
@@ -1120,10 +1160,10 @@ class inputWindow_LDPMCSL:
             allNodes,allTets,tetFacets,facetCenters,facetAreas,facetNormals,tetn1,\
             tetn2,materialList,multiMatRule,multiMaterial,cementStructure,edgeMaterialList,facetCellData,particleID)
 
-        self.form[8].progressBar.setValue(98) 
+        self.form[9].progressBar.setValue(98) 
 
 
-        self.form[8].statusWindow.setText("Status: Writing external facet data file.") 
+        self.form[9].statusWindow.setText("Status: Writing external facet data file.") 
 
         # Initialize counter for number of facet materials switched
         matSwitched = 0
@@ -1143,27 +1183,27 @@ class inputWindow_LDPMCSL:
         App.getDocument(App.ActiveDocument.Name).getObject(analysisName).addObject(App.getDocument(App.ActiveDocument.Name).getObject(dataFilesName))
         App.getDocument(App.ActiveDocument.Name).getObject(analysisName).addObject(App.getDocument(App.ActiveDocument.Name).getObject(visualFilesName))
 
-        self.form[8].statusWindow.setText("Status: Writing node data file.")
+        self.form[9].statusWindow.setText("Status: Writing node data file.")
 
         mkData_nodes(geoName,tempPath,allNodes)
 
-        self.form[8].statusWindow.setText("Status: Writing tet data file.")
+        self.form[9].statusWindow.setText("Status: Writing tet data file.")
 
         mkData_LDPMCSL_tets(geoName,tempPath,allTets)
 
-        self.form[8].statusWindow.setText("Status: Writing facet data file.")
+        self.form[9].statusWindow.setText("Status: Writing facet data file.")
 
         # If data files requested, generate Facet File
         mkData_LDPMCSL_facets(geoName,tempPath,facetData)
         mkData_LDPMCSL_facetsVertices(geoName,tempPath,tetFacets)
         #mkData_LDPMCSL_faceFacets(geoName,tempPath,surfaceNodes,surfaceFaces)
 
-        self.form[8].statusWindow.setText("Status: Writing particle data file.")
+        self.form[9].statusWindow.setText("Status: Writing particle data file.")
 
         # If data files requested, generate Particle Data File
         mkData_particles(allNodes,parDiameterList,geoName,tempPath)
 
-        self.form[8].statusWindow.setText("Status: Writing visualization files.")
+        self.form[9].statusWindow.setText("Status: Writing visualization files.")
 
         # If visuals requested, generate Particle VTK File
         mkVtk_particles(allNodes,parDiameterList,materialList,geoName,tempPath)
@@ -1270,7 +1310,7 @@ class inputWindow_LDPMCSL:
         Gui.getDocument(App.ActiveDocument.Name).getObject(geoName + '_para_facets_000').Transparency = 50
 
 
-        self.form[8].progressBar.setValue(100) 
+        self.form[9].progressBar.setValue(100) 
 
 
         # Switch to FEM GUI

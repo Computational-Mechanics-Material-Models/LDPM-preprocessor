@@ -945,7 +945,7 @@
             <bool>true</bool>
            </property>
            <property name="text">
-            <string>Number of CPUs for Particle Placement</string>
+            <string>Number of CPUs</string>
            </property>
           </widget>
          </item>
@@ -990,7 +990,7 @@
             <bool>true</bool>
            </property>
            <property name="text">
-            <string>Number of Placement Increments (MPI only)</string>
+            <string>Number of Placement Increments</string>
            </property>
           </widget>
          </item>
@@ -1035,7 +1035,7 @@
             <bool>true</bool>
            </property>
            <property name="text">
-            <string>Maximum Particle Placement Iterations</string>
+            <string>Maximum Placement Iterations</string>
            </property>
           </widget>
          </item>
@@ -1061,12 +1061,173 @@
            </item>
           </widget>
          </item>
+         <item>
+          <widget class="QLabel" name="label_placementAlg">
+           <property name="text">
+            <string>Placement Algorithm</string>
+           </property>
+          </widget>
+         </item>
         </layout>
        </item>
       </layout>
      </widget>
     </item>
     <item row="3" column="0">
+     <widget class="QGroupBox" name="gb_mpi_parameters">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">border-color: rgb(182, 182, 182);</string>
+      </property>
+      <property name="title">
+       <string>MPI Parameters</string>
+      </property>
+      <layout class="QGridLayout" name="gridLayout_mpi">
+       <item row="0" column="0">
+        <layout class="QHBoxLayout" name="horizontalLayout_mpi_toggle">
+         <item>
+          <widget class="QComboBox" name="mpiToggle">
+           <property name="enabled">
+            <bool>true</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>75</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>75</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="currentIndex">
+            <number>0</number>
+           </property>
+           <item>
+            <property name="text">
+             <string>Off</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>On</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="mpiToggleLabel">
+           <property name="text">
+            <string>MPI turn On/Off (External only)</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="1" column="0">
+        <layout class="QHBoxLayout" name="horizontalLayout_mpi_rank">
+         <item>
+          <widget class="QSpinBox" name="mpiRank">
+           <property name="enabled">
+            <bool>true</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>75</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>75</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="minimum">
+            <number>0</number>
+           </property>
+           <property name="maximum">
+            <number>999999999</number>
+           </property>
+           <property name="value">
+            <number>8</number>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="mpiRankLabel">
+           <property name="text">
+            <string>Rank</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="2" column="0">
+        <layout class="QHBoxLayout" name="horizontalLayout_mpi_nodes">
+         <item>
+          <widget class="QSpinBox" name="mpiNodes">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>75</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>75</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="minimum">
+            <number>1</number>
+           </property>
+           <property name="maximum">
+            <number>999999999</number>
+           </property>
+           <property name="value">
+            <number>1</number>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="mpiNodesLabel">
+           <property name="text">
+            <string>Number of Nodes</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item row="4" column="0">
      <widget class="QGroupBox" name="gb_setup_sample_parameters">
       <property name="enabled">
        <bool>true</bool>

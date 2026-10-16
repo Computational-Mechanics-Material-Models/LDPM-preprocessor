@@ -79,7 +79,7 @@ from freecad.ldpmWorkbench.generation.calc_parVolume                    import c
 from freecad.ldpmWorkbench.generation.calc_sieveCurve                   import calc_sieveCurve
 from freecad.ldpmWorkbench.generation.calc_LDPMCSL_surfMeshSize         import calc_LDPMCSL_surfMeshSize
 from freecad.ldpmWorkbench.generation.calc_LDPMCSL_surfMeshExtents      import calc_LDPMCSL_surfMeshExtents
-from freecad.ldpmWorkbench.generation.check_particleOverlapMPI          import check_particleOverlapMPI
+from freecad.ldpmWorkbench.generation.check_particleOverlapparallel     import check_particleOverlapparallel
 from freecad.ldpmWorkbench.generation.check_multiMat_size               import check_multiMat_size
 from freecad.ldpmWorkbench.generation.check_multiMat_matVol             import check_multiMat_matVol
 from freecad.ldpmWorkbench.generation.gen_CSL_facetData                 import gen_CSL_facetData
@@ -97,7 +97,7 @@ from freecad.ldpmWorkbench.generation.gen_LDPMCSL_flowEdges             import g
 from freecad.ldpmWorkbench.generation.gen_LDPMCSL_geometry              import gen_LDPMCSL_geometry
 from freecad.ldpmWorkbench.generation.gen_LDPMCSL_initialMesh           import gen_LDPMCSL_initialMesh
 from freecad.ldpmWorkbench.generation.gen_particle                      import gen_particle
-from freecad.ldpmWorkbench.generation.gen_particleMPI                   import gen_particleMPI
+from freecad.ldpmWorkbench.generation.gen_particleparallel              import gen_particleparallel
 from freecad.ldpmWorkbench.generation.gen_particleList                  import gen_particleList
 from freecad.ldpmWorkbench.generation.gen_LDPMCSL_multiStep             import gen_multiMat_phase_particle_list, _phase_list_val
 from freecad.ldpmWorkbench.generation.gen_LDPMCSL_properties            import gen_LDPMCSL_properties
@@ -112,13 +112,15 @@ from freecad.ldpmWorkbench.generation.run_LDPMCSL_external              import r
 from freecad.ldpmWorkbench.generation.gen_multiMat_refine               import gen_multiMat_refine
 from freecad.ldpmWorkbench.generation.gen_multiMat_reform               import gen_multiMat_reform
 from freecad.ldpmWorkbench.generation.gen_multiMat_assign               import gen_multiMat_assign
-from freecad.ldpmWorkbench.generation.gen_3DCP_interlayer                import apply_3DCP_interlayer
+from freecad.ldpmWorkbench.generation.gen_3DCP_interlayer                import apply_3DCP_interlayer, build_interface_regions
+from freecad.ldpmWorkbench.generation.gen_reinforcement                import generate_reinforcement
 from freecad.ldpmWorkbench.generation.sort_multiMat_voxels              import sort_multiMat_voxels
 from freecad.ldpmWorkbench.generation.sort_multiMat_mat                 import sort_multiMat_mat
 
 # Importing: input
 from freecad.ldpmWorkbench.input.read_ctScan_file                       import read_ctScan_file
 from freecad.ldpmWorkbench.input.read_interlayer_inputs            import read_interlayer_inputs
+from freecad.ldpmWorkbench.input.read_reinforcement_inputs         import read_reinforcement_inputs
 from freecad.ldpmWorkbench.input.read_LDPMCSL_inputs                    import read_LDPMCSL_inputs, read_rf_generation_inputs
 from freecad.ldpmWorkbench.input.read_LDPMCSL_tetgen                    import read_LDPMCSL_tetgen
 from freecad.ldpmWorkbench.input.read_multiMat_file                     import read_multiMat_file
@@ -127,6 +129,7 @@ from freecad.ldpmWorkbench.input.read_multiMat_file                     import r
 from freecad.ldpmWorkbench.output.mkVtk_particles                       import mkVtk_particles
 from freecad.ldpmWorkbench.output.mkVtk_LDPMCSL_facets                  import mkVtk_LDPMCSL_facets
 from freecad.ldpmWorkbench.output.mkVtk_LDPMCSL_fibers                  import mkVtk_LDPMCSL_fibers
+from freecad.ldpmWorkbench.output.mkVtk_LDPMCSL_reinforcement           import mkVtk_LDPMCSL_reinforcement
 from freecad.ldpmWorkbench.output.mkVtk_orientationPath                 import mkVtk_orientationPath
 from freecad.ldpmWorkbench.output.mkVtk_LDPMCSL_flowEdges               import mkVtk_LDPMCSL_flowEdges
 from freecad.ldpmWorkbench.output.mkVtk_LDPMCSL_nonIntFibers            import mkVtk_LDPMCSL_nonIntFibers
@@ -300,7 +303,7 @@ def driver_LDPMCSL(self, runMode, tempPath):
         cementDensity, flyashDensity, silicaDensity, scmDensity, airFrac1, \
         fillerC, fillerDensity, airFrac2,\
         htcToggle, htcLength,\
-        fiberToggle, fiberCutting, fiberDiameter, fiberLength, fiberVol, fiberOrientation1, fiberOrientation2, fiberOrientation3, fiberPref, fiberFile, fiberIntersections, fiberOutputFiles,\
+        fiberToggle, fiberCutting, fiberDiameter, fiberLength, fiberVol, fiberOrientation1, fiberOrientation2, fiberOrientation3, fiberPref, fiberFile, fiberIntersections, fiberOutputFiles, fiberInterfaceIntersect,\
         multiMatToggle,aggFile,multiMatFile,multiMatRule,\
         grainAggMin, grainAggMax, grainAggFuller, grainAggSieveD, grainAggSieveP,\
         grainITZMin, grainITZMax, grainITZFuller, grainITZSieveD, grainITZSieveP,\
@@ -310,9 +313,17 @@ def driver_LDPMCSL(self, runMode, tempPath):
         particlePhaseMode, phaseMinPar, phaseMaxPar, phaseOffsetCoefList,\
         periodicToggle,particleOffsetCoef,\
         outDir, dataFilesGen, visFilesGen, singleTetGen, modelType,\
-        orientationPathType_sweep3dp, orientationPathSketchName_sweep3dp, orientationSegments_sweep3dp] = read_LDPMCSL_inputs(self.form)
+        orientationPathType_sweep3dp, orientationPathSketchName_sweep3dp, orientationSegmentLength_sweep3dp] = read_LDPMCSL_inputs(self.form)
 
     interlayer_params = read_interlayer_inputs(self.form)
+    try:
+        reinf_inputs = read_reinforcement_inputs(self.form)
+    except ValueError as exc:
+        gen_ui.statusWindow.setText("Status: " + str(exc))
+        gen_ui.progressBar.setValue(0)
+        raise
+    reinf_written = False
+    reinf_result = None
     rf_params = read_rf_generation_inputs(
         self.form,
         job_plan=getattr(self, "_rfJobPlan", None),
@@ -352,6 +363,8 @@ def driver_LDPMCSL(self, runMode, tempPath):
     # Use single names for geoTypes
     if geoType in ["Box","Cylinder","Cone","Sphere","Ellipsoid","Prism","Dogbone","Custom"]:
         geoTypeOutName = geoType
+    elif geoType == "L-shape":
+        geoTypeOutName = "Lshape"
     elif geoType == "Notched Prism - Semi Circle":
         geoTypeOutName = "NotchedPrismSemiCircle"
     elif geoType == "Notched Prism - Square":
@@ -551,15 +564,29 @@ def driver_LDPMCSL(self, runMode, tempPath):
 
         _external_report("Preparing external package...")
 
-        pathSegments = build_sweep3dp_path_segments(
-            geoType,
-            dimensions,
-            orientationPathType_sweep3dp,
-            orientationPathSketchName_sweep3dp,
-            orientationSegments_sweep3dp,
-        )
-        if pathSegments is not None:
-            save_path_segments_json(pathSegments, tempPath + "pathSegments_sweep3dp.json")
+        mpiToggle = "Off"
+        mpiRank = 8
+        mpiNodes = 1
+        model_form = self.form[0] if self.form else None
+        if model_form is not None and hasattr(model_form, "mpiToggle"):
+            mpiToggle = model_form.mpiToggle.currentText()
+        if model_form is not None and hasattr(model_form, "mpiRank"):
+            mpiRank = int(model_form.mpiRank.value())
+        if model_form is not None and hasattr(model_form, "mpiNodes"):
+            mpiNodes = int(model_form.mpiNodes.value())
+        mpi_on = str(mpiToggle).strip().lower() in ["on", "y", "yes", "true", "1"]
+
+        pathSegments = None
+        if geoType == "Sweep-3DP":
+            pathSegments = build_sweep3dp_path_segments(
+                geoType,
+                dimensions,
+                orientationPathType_sweep3dp,
+                orientationPathSketchName_sweep3dp,
+                orientationSegmentLength_sweep3dp,
+            )
+            if pathSegments is not None:
+                save_path_segments_json(pathSegments, tempPath + "pathSegments_sweep3dp.json")
 
         agg_suffix = Path(str(aggFile)).suffix if aggFile not in [None, "", 0, []] else ""
         multiMat_suffix = Path(str(multiMatFile)).suffix if multiMatFile not in [None, "", 0, []] else ""
@@ -567,6 +594,20 @@ def driver_LDPMCSL(self, runMode, tempPath):
         aggFileBundle = _copy_external_input(aggFile, tempPath, "aggFile" + agg_suffix)
         multiMatFileBundle = _copy_external_input(multiMatFile, tempPath, "multiMatFile" + multiMat_suffix)
         fiberFileBundle = _copy_external_input(fiberFile, tempPath, "fiberFile" + fiber_suffix)
+        reinf_bundle = None
+        if reinf_inputs:
+            reinf_bundle = {
+                "grid": reinf_inputs.get("grid"),
+                "cad": None if reinf_inputs.get("cad") is None else dict(reinf_inputs["cad"]),
+                "elementLength": reinf_inputs.get("elementLength", 1.0),
+                "elementDiameter": reinf_inputs.get("elementDiameter", 1.0),
+                "reinfElementType": reinf_inputs.get("reinfElementType", "2DOF-T2D2/LINK1"),
+            }
+            reinf_cad = reinf_bundle.get("cad")
+            if reinf_cad and reinf_cad.get("path"):
+                copied = _copy_external_input(reinf_cad["path"], tempPath, "reinforcement.dxf")
+                if isinstance(copied, str) and copied != "":
+                    reinf_cad["path"] = Path(copied).name
 
         manifest = {
             "geoName": geoName,
@@ -649,10 +690,12 @@ def driver_LDPMCSL(self, runMode, tempPath):
             "fiberFile": fiberFileBundle,
             "fiberIntersections": fiberIntersections,
             "fiberOutputFiles": fiberOutputFiles,
+            "fiberInterfaceIntersect": fiberInterfaceIntersect,
             "htcToggle": htcToggle,
             "htcLength": htcLength,
             "hasPathSegments": pathSegments is not None and len(pathSegments) > 0,
             "interlayer": interlayer_params,
+            "reinforcement": reinf_bundle,
             "rfToggle": rf_params["rfToggle"],
             "numSamples": rf_params["numSamples"],
             "rfFieldDir": rf_params["rfFieldDir"],
@@ -661,24 +704,99 @@ def driver_LDPMCSL(self, runMode, tempPath):
             "needsExternalMesh": True,
             "geometryBrep": geometry_brep_name,
             "gmshBin": gmsh_bin,
+            "mpiToggle": mpiToggle,
+            "mpiRank": int(mpiRank),
+            "mpiNodes": int(mpiNodes),
         }
 
         with open(Path(tempPath + "external_manifest_ldpmcsl.json"), "w", encoding="utf-8") as f:
             json.dump(_json_safe(manifest), f, indent=2)
 
-        workbenchRoot = str(Path(__file__).resolve().parents[3])
         runnerPath = Path(tempPath + "run_external_ldpmcsl.py")
-        with open(runnerPath, "w", encoding="utf-8") as f:
-            f.write(
-                "import sys\n"
-                "from pathlib import Path\n\n"
-                "WORKBENCH_ROOT = r\"" + workbenchRoot.replace("\\", "\\\\") + "\"\n"
-                "if WORKBENCH_ROOT not in sys.path:\n"
-                "    sys.path.insert(0, WORKBENCH_ROOT)\n\n"
-                "from freecad.ldpmWorkbench.generation.run_LDPMCSL_external import run_external_bundle\n\n"
-                "if __name__ == '__main__':\n"
-                "    run_external_bundle(Path(__file__).resolve().parent)\n"
-            )
+        locate_workbench = (
+            "import os\n"
+            "import sys\n"
+            "from pathlib import Path\n\n"
+            "def _workbench_root():\n"
+            "    candidates = []\n"
+            "    env = os.environ.get(\"CHRONOCONCRETE_ROOT\", \"\").strip()\n"
+            "    if env:\n"
+            "        candidates.append(Path(env))\n"
+            "    home = Path.home()\n"
+            "    bases = []\n"
+            "    appdata = os.environ.get(\"APPDATA\", \"\").strip()\n"
+            "    if appdata:\n"
+            "        bases.append(Path(appdata) / \"FreeCAD\" / \"Mod\")\n"
+            "    bases.extend([\n"
+            "        home / \"AppData\" / \"Roaming\" / \"FreeCAD\" / \"Mod\",\n"
+            "        home / \".FreeCAD\" / \"Mod\",\n"
+            "        home / \".local\" / \"share\" / \"FreeCAD\" / \"Mod\",\n"
+            "        home / \"Library\" / \"Application Support\" / \"FreeCAD\" / \"Mod\",\n"
+            "        home / \"Library\" / \"Preferences\" / \"FreeCAD\" / \"Mod\",\n"
+            "    ])\n"
+            "    for base in bases:\n"
+            "        candidates.append(base / \"chronoConcrete\")\n"
+            "    for folder in candidates:\n"
+            "        if (folder / \"freecad\" / \"ldpmWorkbench\" / \"generation\").is_dir():\n"
+            "            return str(folder.resolve())\n"
+            "    raise SystemExit(\n"
+            "        \"Could not find the chronoConcrete workbench. \"\n"
+            "        \"Install it under FreeCAD/Mod, or set CHRONOCONCRETE_ROOT.\"\n"
+            "    )\n\n"
+            "WORKBENCH_ROOT = _workbench_root()\n"
+            "if WORKBENCH_ROOT not in sys.path:\n"
+            "    sys.path.insert(0, WORKBENCH_ROOT)\n"
+            "os.environ[\"PYTHONPATH\"] = WORKBENCH_ROOT + os.pathsep + os.environ.get(\"PYTHONPATH\", \"\")\n"
+        )
+        if mpi_on:
+            with open(runnerPath, "w", encoding="utf-8") as f:
+                f.write(
+                    "import json\n"
+                    "import subprocess\n"
+                    + locate_workbench +
+                    "\n"
+                    "from freecad.ldpmWorkbench.generation.run_LDPMCSL_external import run_external_bundle\n\n"
+                    "def _run_mpi(module, ranks, bundle, label, force=False):\n"
+                    "    print(label, flush=True)\n"
+                    "    cmd = [\"mpiexec\", \"-n\", str(ranks), sys.executable, \"-m\", module, str(bundle)]\n"
+                    "    if force:\n"
+                    "        cmd.append(\"--force\")\n"
+                    "    try:\n"
+                    "        rc = subprocess.call(cmd, env=os.environ.copy())\n"
+                    "    except FileNotFoundError:\n"
+                    "        raise SystemExit(\"mpiexec was not found. MPI external run needs mpiexec on PATH.\")\n"
+                    "    if rc != 0:\n"
+                    "        raise SystemExit(rc)\n\n"
+                    "if __name__ == '__main__':\n"
+                    "    bundle = Path(__file__).resolve().parent\n"
+                    "    with open(bundle / \"external_manifest_ldpmcsl.json\", \"r\", encoding=\"utf-8\") as mf:\n"
+                    "        cfg = json.load(mf)\n"
+                    "    ranks = max(1, int(cfg.get(\"mpiRank\", 8)))\n"
+                    "    facet_ranks = max(1, min(ranks, 4))\n"
+                    "    print(\"MPI: meshing\", flush=True)\n"
+                    "    run_external_bundle(bundle, mesh_only=True)\n"
+                    "    _run_mpi(\"freecad.ldpmWorkbench.generation.mpi_driver_LDPMCSL\", ranks, bundle, \"MPI: placing particles, %d ranks\" % ranks)\n"
+                    "    if not (bundle / \"internalNodes.npy\").is_file():\n"
+                    "        raise SystemExit(\"MPI did not write internalNodes.npy\")\n"
+                    "    fiber_on = str(cfg.get(\"fiberToggle\", \"Off\")).strip().lower() in [\"on\", \"y\", \"yes\", \"true\", \"1\"]\n"
+                    "    if fiber_on:\n"
+                    "        _run_mpi(\"freecad.ldpmWorkbench.generation.mpi_driver_fibers\", ranks, bundle, \"MPI: placing fibers, %d ranks\" % ranks)\n"
+                    "        if not (bundle / \"p1Fibers.npy\").is_file():\n"
+                    "            raise SystemExit(\"MPI did not write p1Fibers.npy\")\n"
+                    "    _run_mpi(\"freecad.ldpmWorkbench.generation.mpi_driver_facets\", facet_ranks, bundle, \"MPI: generating facets, %d ranks\" % facet_ranks, force=True)\n"
+                    "    if not (bundle / \"facetData.npy\").is_file():\n"
+                    "        raise SystemExit(\"MPI did not write facetData.npy\")\n"
+                    "    print(\"MPI complete\", flush=True)\n"
+                )
+        else:
+            with open(runnerPath, "w", encoding="utf-8") as f:
+                f.write(
+                    locate_workbench +
+                    "\n"
+                    "from freecad.ldpmWorkbench.generation.run_LDPMCSL_external import run_external_bundle\n\n"
+                    "if __name__ == '__main__':\n"
+                    "    run_external_bundle(Path(__file__).resolve().parent)\n"
+                )
 
         file_names = os.listdir(tempPath)
         for file_name in file_names:
@@ -701,7 +819,17 @@ def driver_LDPMCSL(self, runMode, tempPath):
         gen_ui.progressBar.setValue(100)
         total_elapsed = _external_fmt_elapsed(time.time() - start_time)
         _external_report("External generation package written to: " + str(finalDir))
-        _external_report("Geometry in FreeCAD; Gmsh mesh + particles run outside FreeCAD.")
+        if mpi_on:
+            if str(fiberToggle).strip().lower() in ["on", "y", "yes", "true", "1"]:
+                _external_report("MPI particle ranks: " + str(int(mpiRank)) + ". Fiber ranks: " + str(int(mpiRank)) + ". Facet ranks: 4 maximum.")
+            else:
+                _external_report("MPI particle ranks: " + str(int(mpiRank)) + ". Facet ranks: 4 maximum.")
+            if reinf_inputs:
+                _external_report("Reinforcement is written with the MPI facet output.")
+            if interlayer_params and interlayer_params.get("enabled"):
+                _external_report("Interface tags are applied with the MPI facet output.")
+        else:
+            _external_report("Geometry in FreeCAD; Gmsh mesh + particles run outside FreeCAD.")
         _external_report("External packaging completed in " + total_elapsed)
         _external_report("Run external: python run_external_ldpmcsl.py")
         return
@@ -764,6 +892,18 @@ def driver_LDPMCSL(self, runMode, tempPath):
 
     if runMode == "fast":
 
+        pathSegments = None
+        if geoType == "Sweep-3DP":
+            pathSegments = build_sweep3dp_path_segments(
+                geoType,
+                dimensions,
+                orientationPathType_sweep3dp,
+                orientationPathSketchName_sweep3dp,
+                orientationSegmentLength_sweep3dp,
+            )
+            if pathSegments is not None:
+                save_path_segments_json(pathSegments, tempPath + "pathSegments_sweep3dp.json")
+
         gen_ui.statusWindow.setText("Status: Preparing data for particle generation...")
         try:
             App.Console.PrintMessage("Preparing data for particle generation...\n")
@@ -786,6 +926,11 @@ def driver_LDPMCSL(self, runMode, tempPath):
         
         try:
             from freecad.ldpmWorkbench.generation.gen_LDPMCSL_multiStep import gen_LDPMCSL_multiStep
+            interfaceRegions = None
+            if fiberInterfaceIntersect not in ['on', 'On', 'Y', 'y', 'Yes', 'yes']:
+                _regions = build_interface_regions(minC, maxC, interlayer_params)
+                if _regions:
+                    interfaceRegions = _regions
             fiber_result = gen_LDPMCSL_multiStep(
                 tempPath, numCPU, numIncrements, maxIter, parOffset, maxEdgeLength, max_dist,
                 minPar_sim, maxPar_sim, minPar_exp, maxPar_exp, sieveCurveDiameter, sieveCurvePassing,
@@ -799,6 +944,8 @@ def driver_LDPMCSL(self, runMode, tempPath):
                 phaseMode,
                 phaseMinPar, phaseMaxPar, phaseOffsetCoefList, phaseFillerContent, phaseFillerDensity,
                 particlePhaseMode in (2, 3),
+                interfaceRegions=interfaceRegions,
+                pathSegments=pathSegments,
             )
             
             gen_ui.statusWindow.setText("Status: Particle generation completed!")
@@ -1181,7 +1328,7 @@ def driver_LDPMCSL(self, runMode, tempPath):
 
                             futures = []
                             for parDiam in particle_batch:
-                                future = executor.submit(gen_particleMPI, surfaceNodes, maxParNum, minC, maxC, 
+                                future = executor.submit(gen_particleparallel, surfaceNodes, maxParNum, minC, maxC, 
                                                         meshVertices, meshTets, coord1, coord2, coord3, coord4,
                                                         newMaxIter, maxIter, minPar_sim, maxPar_sim, parOffset,
                                                         verbose, parDiameterList, maxEdgeLength, max_dist, 
@@ -1205,7 +1352,7 @@ def driver_LDPMCSL(self, runMode, tempPath):
                                         nodeMPI[x,1]+diameter[x]/2+maxPar_sim/2+parOffset,nodeMPI[x,2]+\
                                         diameter[x]/2+maxPar_sim/2+parOffset]))
 
-                                    overlap = check_particleOverlapMPI(nodeMPI[x,:],diameter[x],binMin,\
+                                    overlap = check_particleOverlapparallel(nodeMPI[x,:],diameter[x],binMin,\
                                         binMax,minPar_sim,parOffset,nodeMPI[0:x],diameter[0:x])
 
                                     if overlap == True:
@@ -1339,26 +1486,21 @@ def driver_LDPMCSL(self, runMode, tempPath):
 
 
 
-    pathSegments = build_sweep3dp_path_segments(
-        geoType,
-        dimensions,
-        orientationPathType_sweep3dp,
-        orientationPathSketchName_sweep3dp,
-        orientationSegments_sweep3dp,
-    )
-    if pathSegments is not None:
-        print(
-            f"PathSegments created with {len(pathSegments)} segments "
-            f"(orientationPathType_sweep3dp={orientationPathType_sweep3dp})"
-        )
-    elif geoType == "Sweep-3DP" and orientationPathType_sweep3dp >= 0:
-        print(
-            f"Sweep-3DP orientation path (type={orientationPathType_sweep3dp}): "
-            f"No pathSegments created"
-        )
-    else:
-        print(f"geoType: {geoType} | orientationPathType: {orientationPathType_sweep3dp}")
+    if fiberInterfaceIntersect not in ['on', 'On', 'Y', 'y', 'Yes', 'yes']:
+        try:
+            App.Console.PrintMessage("Fiber crossing at interface: Off\n")
+        except Exception:
+            print("Fiber crossing at interface: Off")
 
+    pathSegments = None
+    if geoType == "Sweep-3DP":
+        pathSegments = build_sweep3dp_path_segments(
+            geoType,
+            dimensions,
+            orientationPathType_sweep3dp,
+            orientationPathSketchName_sweep3dp,
+            orientationSegmentLength_sweep3dp,
+        )
     if fiberToggle in ['on','On','Y','y','Yes','yes']:
         
         fiberStartTime = time.time()
@@ -1422,6 +1564,12 @@ def driver_LDPMCSL(self, runMode, tempPath):
 
             if geoType == "Sweep-3DP" and pathSegments is not None:
                 print(f"Starting fiber generation: pathSegments={len(pathSegments)}, fiberPref={fiberPref}")
+
+            interfaceRegions = None
+            if fiberInterfaceIntersect not in ['on', 'On', 'Y', 'y', 'Yes', 'yes']:
+                _regions = build_interface_regions(minC, maxC, interlayer_params)
+                if _regions:
+                    interfaceRegions = _regions
             
             for x in range(0,nFiber):
                 
@@ -1433,7 +1581,7 @@ def driver_LDPMCSL(self, runMode, tempPath):
                 [p1Fiber, p2Fiber, orienFiber, lFiber] = gen_LDPMCSL_fibers(meshVertices,meshTets,coord1,\
                     coord2,coord3,coord4,maxIter,fiberLength,maxC,maxPar_sim,\
                     np.array([fiberOrientation1, fiberOrientation2, fiberOrientation3]),fiberPref,surfaceFaces,\
-                    fiberCutting,pathSegments)
+                    fiberCutting,pathSegments,interfaceRegions)
                 
                 p1Fibers[x,:] = p1Fiber
                 p2Fibers[x,:] = p2Fiber
@@ -1957,6 +2105,21 @@ def driver_LDPMCSL(self, runMode, tempPath):
         # If data files requested, generate Particle Data File
         mkData_particles(allNodes,allDiameters,geoName,tempPath)
 
+        if reinf_inputs:
+            gen_ui.statusWindow.setText("Status: Writing reinforcement data file.")
+            reinf_result = generate_reinforcement(
+                geoName,
+                tempPath,
+                minC,
+                maxC,
+                grid=reinf_inputs.get("grid"),
+                cad=reinf_inputs.get("cad"),
+                element_length=reinf_inputs.get("elementLength", 1.0),
+                diameter=reinf_inputs.get("elementDiameter", 1.0),
+                element_type=reinf_inputs.get("reinfElementType", "2DOF-T2D2/LINK1"),
+                log=lambda msg: App.Console.PrintMessage(str(msg) + "\n"),
+            )
+            reinf_written = bool(reinf_result and reinf_result.get("path"))
 
         if htcToggle in ['on','On']:
 
@@ -1988,6 +2151,30 @@ def driver_LDPMCSL(self, runMode, tempPath):
         if ((fiberToggle in ['on','On','Y','y','Yes','yes']) and (fiberIntersections in ['on','On','Y','y','Yes','yes'])):
             mkVtk_LDPMCSL_projFacets(geoName,projectedFacet,tempPath)
             mkVtk_LDPMCSL_nonIntFibers(p1Fibers,p2Fibers,fiberDiameter,fiberLengths,orienFibers,geoName,IntersectedFiber,tempPath)
+
+        if reinf_inputs and reinf_result is None:
+            reinf_result = generate_reinforcement(
+                geoName,
+                tempPath,
+                minC,
+                maxC,
+                grid=reinf_inputs.get("grid"),
+                cad=reinf_inputs.get("cad"),
+                element_length=reinf_inputs.get("elementLength", 1.0),
+                diameter=reinf_inputs.get("elementDiameter", 1.0),
+                element_type=reinf_inputs.get("reinfElementType", "2DOF-T2D2/LINK1"),
+                log=lambda msg: App.Console.PrintMessage(str(msg) + "\n"),
+            )
+        if reinf_result and reinf_result.get("nodes") and reinf_result.get("elements"):
+            vtk_path = mkVtk_LDPMCSL_reinforcement(
+                geoName,
+                tempPath,
+                reinf_result["nodes"],
+                reinf_result["elements"],
+                diameter=reinf_result.get("diameter", 1.0),
+            )
+            if vtk_path:
+                reinf_result["vtkPath"] = vtk_path
         
         if geoType == "Sweep-3DP" and pathSegments is not None and len(pathSegments) > 0:
             mkVtk_orientationPath(pathSegments, geoName, tempPath)    
@@ -2089,6 +2276,11 @@ def driver_LDPMCSL(self, runMode, tempPath):
         App.getDocument(App.ActiveDocument.Name).getObject(dataFilesName).addObject(LDPMfacetsVerticesData)
         LDPMfacetsVerticesData.addProperty("App::PropertyFile",'Location','Facet Vertices Data File','Location of facet vertices data file').Location=str(Path(outDir + outName + '/' + geoName + '-data-facetsVertices.dat'))
 
+        if reinf_written:
+            LDPMreinfData = App.ActiveDocument.addObject("Part::FeaturePython", "LDPMreinfData")
+            App.getDocument(App.ActiveDocument.Name).getObject(dataFilesName).addObject(LDPMreinfData)
+            LDPMreinfData.addProperty("App::PropertyFile",'Location','Reinforcement Data File','Location of reinforcement data file').Location=str(Path(outDir + outName + '/' + geoName + '-data-reinforcement.dat'))
+
 
 
 
@@ -2098,6 +2290,11 @@ def driver_LDPMCSL(self, runMode, tempPath):
         #LDPMparticlesVTK.ViewObject.Proxy = IconViewProviderToFile(LDPMparticlesVTK,os.path.join(ICONPATH,'FEMMeshICON.svg'))
         App.getDocument(App.ActiveDocument.Name).getObject(visualFilesName).addObject(LDPMparticlesVTK)
         LDPMparticlesVTK.addProperty("App::PropertyFile",'Location','Paraview VTK File','Location of Paraview VTK file').Location=str(Path(outDir + outName + '/' + geoName + '-para-particles.000.vtk'))
+
+        if reinf_result and reinf_result.get("vtkPath"):
+            LDPMreinfVTK = App.ActiveDocument.addObject("Part::FeaturePython", "LDPMreinfVTK")
+            App.getDocument(App.ActiveDocument.Name).getObject(visualFilesName).addObject(LDPMreinfVTK)
+            LDPMreinfVTK.addProperty("App::PropertyFile",'Location','Paraview VTK File','Location of Paraview VTK file').Location=str(Path(outDir + outName + '/' + geoName + '-para-reinforcement.000.vtk'))
 
 
     if geoType in ['Cylinder', 'Cone', 'Sphere','Import CAD or Mesh']:

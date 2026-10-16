@@ -23,7 +23,8 @@ from pathlib import Path
 
 import numpy as np
 
-from freecad.ldpmWorkbench.generation.gen_3DCP_interlayer import apply_3DCP_interlayer
+from freecad.ldpmWorkbench.generation.gen_3DCP_interlayer import apply_3DCP_interlayer, build_interface_regions
+from freecad.ldpmWorkbench.generation.gen_reinforcement import generate_reinforcement
 from freecad.ldpmWorkbench.generation.gen_CSL_facetData import gen_CSL_facetData
 from freecad.ldpmWorkbench.generation.gen_LDPM_facetData import gen_LDPM_facetData
 from freecad.ldpmWorkbench.random_field_generation.driver_RF import (apply_rf_eole_to_facet_data, resolve_rf_realization)
@@ -59,11 +60,15 @@ from freecad.ldpmWorkbench.output.mkVtk_LDPM_singleTetFacets import mkVtk_LDPM_s
 from freecad.ldpmWorkbench.output.mkVtk_LDPM_singleTetParticles import mkVtk_LDPM_singleTetParticles
 from freecad.ldpmWorkbench.output.mkVtk_LDPMCSL_facets import mkVtk_LDPMCSL_facets
 from freecad.ldpmWorkbench.output.mkVtk_LDPMCSL_fibers import mkVtk_LDPMCSL_fibers
+from freecad.ldpmWorkbench.output.mkVtk_LDPMCSL_reinforcement import mkVtk_LDPMCSL_reinforcement
 from freecad.ldpmWorkbench.output.mkVtk_LDPMCSL_flowEdges import mkVtk_LDPMCSL_flowEdges
 from freecad.ldpmWorkbench.output.mkVtk_LDPMCSL_nonIntFibers import mkVtk_LDPMCSL_nonIntFibers
 from freecad.ldpmWorkbench.output.mkVtk_LDPMCSL_projFacets import mkVtk_LDPMCSL_projFacets
 from freecad.ldpmWorkbench.output.mkVtk_orientationPath import mkVtk_orientationPath
 from freecad.ldpmWorkbench.generation.gen_LDPMCSL_externalMesh import mesh_geometry_with_gmsh
+from freecad.ldpmWorkbench.generation.gen_multiMat_assign import gen_multiMat_assign
+from freecad.ldpmWorkbench.generation.sort_multiMat_voxels import sort_multiMat_voxels
+from freecad.ldpmWorkbench.input.read_multiMat_file import read_multiMat_file
 from freecad.ldpmWorkbench.output.mkVtk_particles import mkVtk_particles
 
 
@@ -86,7 +91,7 @@ def _temp_path(bundle_dir):
     return bundle
 
 
-def run_external_bundle(bundle_dir):
+def run_external_bundle(bundle_dir, mesh_only=False):
 
     bundle_dir = Path(bundle_dir).resolve()
     manifest_path = bundle_dir / "external_manifest_ldpmcsl.json"
@@ -100,12 +105,6 @@ def run_external_bundle(bundle_dir):
     geoName = cfg["geoName"]
     elementType = cfg["elementType"]
     verbose_on = _verbose_on(cfg.get("verbose", "On"))
-
-    if _toggle_on(cfg.get("multiMatToggle", "Off")):
-        raise RuntimeError(
-            "External generation does not support PLDPM multimaterial. "
-            "Use in-GUI generation for PLDPM, or turn multimaterial Off."
-        )
 
     start_time = time.time()
 
@@ -145,11 +144,26 @@ def run_external_bundle(bundle_dir):
         coord3 = np.load(tempPath + "coord3.npy")
         coord4 = np.load(tempPath + "coord4.npy")
 
+    if mesh_only:
+        _external_log("External: mesh ready. MPI particle placement started.", verbose_on)
+        return
+
     resume = os.environ.get("CHRONO_EXTERNAL_RESUME", "").strip() in ("1", "true", "True", "yes", "on")
     have_particles = Path(tempPath + "internalNodes.npy").is_file() and Path(tempPath + "parDiameterList.npy").is_file()
+    pathSegments = None
+    if cfg.get("hasPathSegments"):
+        pathSegments = load_path_segments_json(tempPath + "pathSegments_sweep3dp.json")
+
     if resume and have_particles:
         _external_log("External: resuming — skipping particle placement (using existing *.npy).", verbose_on)
     else:
+        ms_interface_regions = None
+        if not _toggle_on(cfg.get("fiberInterfaceIntersect", "Off")):
+            ms_interface_regions = build_interface_regions(
+                cfg["minC"], cfg["maxC"], cfg.get("interlayer") or {}
+            )
+            if not ms_interface_regions:
+                ms_interface_regions = None
         gen_LDPMCSL_multiStep(
             tempPath,
             cfg["numCPU"],
@@ -178,9 +192,9 @@ def run_external_bundle(bundle_dir):
             cfg["fillerDensity"],
             cfg["cementDensity"],
             cfg["densityWater"],
-            "Off",
-            "",
-            "",
+            cfg.get("multiMatToggle", "Off"),
+            cfg.get("aggFile") or "",
+            cfg.get("multiMatFile") or "",
             cfg.get("grainAggMin", 0.0),
             cfg.get("grainAggMax", 0.0),
             cfg.get("grainAggFuller", 0.0),
@@ -213,11 +227,16 @@ def run_external_bundle(bundle_dir):
             cfg["fiberIntersections"],
             cfg.get("fiberOutputFiles", "Off"),
             surfaceFaces,
+            phaseMode=int(cfg.get("phaseMode", 3) or 3),
+            phaseMinPar=cfg.get("phaseMinPar") or [],
+            phaseMaxPar=cfg.get("phaseMaxPar") or [],
+            phaseOffsetCoefList=cfg.get("phaseOffsetCoefList") or [],
+            phaseFillerContent=cfg.get("phaseFillerContent") or [],
+            phaseFillerDensity=cfg.get("phaseFillerDensity") or [],
+            fillerOnlyPhases=bool(cfg.get("fillerOnlyPhases", False)),
+            interfaceRegions=ms_interface_regions,
+            pathSegments=pathSegments,
         )
-
-    pathSegments = None
-    if cfg.get("hasPathSegments"):
-        pathSegments = load_path_segments_json(tempPath + "pathSegments_sweep3dp.json")
 
     if not _toggle_on(cfg.get("fiberOutputFiles", "Off")):
         for _fn in ("p1Fibers.npy", "p2Fibers.npy", "orienFibers.npy", "fiberLengths.npy", "fiberDiameter.npy", "nFiber.npy"):
@@ -267,6 +286,12 @@ def run_external_bundle(bundle_dir):
             if not verbose_on and nFiber > 0:
                 _external_log(f"External: generating {nFiber} fibers.", verbose_on)
 
+            interfaceRegions = None
+            if not _toggle_on(cfg.get("fiberInterfaceIntersect", "Off")):
+                _regions = build_interface_regions(cfg["minC"], cfg["maxC"], cfg.get("interlayer") or {})
+                if _regions:
+                    interfaceRegions = _regions
+
             for x in range(0, nFiber):
                 if verbose_on and x % 100 == 0:
                     print(str(nFiber - x) + " fibers remaining")
@@ -293,6 +318,7 @@ def run_external_bundle(bundle_dir):
                     surfaceFaces,
                     cfg["fiberCutting"],
                     pathSegments,
+                    interfaceRegions,
                 )
                 p1Fibers[x, :] = p1Fiber
                 p2Fibers[x, :] = p2Fiber
@@ -357,8 +383,34 @@ def run_external_bundle(bundle_dir):
     edgeMaterialList = 0
     cementStructure = "Off"
 
+    multi_on = _toggle_on(cfg.get("multiMatToggle", "Off"))
+    phase_mode = int(cfg.get("phaseMode", 3) or 3)
     particleID = np.concatenate((0 * np.ones([len(allNodes) - len(particleID),]), particleID))
-    materialList = np.concatenate((0 * np.ones([len(allNodes) - len(materialList),]), materialList))
+    if multi_on:
+        edge_fill = 2 if phase_mode == 2 else 3
+        materialList = np.concatenate((edge_fill * np.ones([len(allNodes) - len(materialList),]), materialList))
+        multiMatX, multiMatY, multiMatZ, multiMatRes, multiMatVoxels = read_multiMat_file(cfg["multiMatFile"])
+        aggVoxels, itzVoxels, binderVoxels, _aggVoxelIDs = sort_multiMat_voxels(
+            multiMatVoxels, phaseMode=phase_mode
+        )
+        if phase_mode == 2:
+            itzVoxels = np.array([])
+        materialList = gen_multiMat_assign(
+            allNodes,
+            materialList,
+            aggVoxels,
+            itzVoxels,
+            binderVoxels,
+            internalNodes,
+            multiMatX,
+            multiMatY,
+            multiMatZ,
+            multiMatRes,
+            np.array(cfg["minC"]),
+            phaseMode=phase_mode,
+        )
+    else:
+        materialList = np.concatenate((0 * np.ones([len(allNodes) - len(materialList),]), materialList))
 
     if verbose_on:
         print("Generating facet data.")
@@ -373,12 +425,13 @@ def run_external_bundle(bundle_dir):
             tetn1,
             tetn2,
             materialList,
-            0,
-            "Off",
+            cfg.get("multiMatRule", 0),
+            cfg.get("multiMatToggle", "Off"),
             cementStructure,
             edgeMaterialList,
             facetCellData,
             particleID,
+            phaseMode=phase_mode,
         )
     else:
         facetData, facetMaterial, subtetVol, facetVol1, facetVol2, particleMaterial = gen_CSL_facetData(
@@ -463,6 +516,7 @@ def run_external_bundle(bundle_dir):
 
     allDiameters = np.concatenate((np.array([0.0] * int(len(allNodes) - len(parDiameterList))), parDiameterList))
 
+    reinf_result = None
     if cfg["dataFilesGen"]:
         if verbose_on:
             print("Writing data files.")
@@ -476,6 +530,25 @@ def run_external_bundle(bundle_dir):
         if FiberdataList is not None:
             mkData_LDPMCSL_facetfiberInt(geoName, FiberdataList, TotalIntersections, MaxInterPerFacet, tempPath)
         mkData_particles(allNodes, allDiameters, geoName, tempPath)
+        reinf = cfg.get("reinforcement")
+        if reinf:
+            reinf_cad = reinf.get("cad")
+            if reinf_cad:
+                reinf_cad = dict(reinf_cad)
+                reinf_path = Path(reinf_cad.get("path") or "")
+                if not reinf_path.is_file():
+                    reinf_cad["path"] = str(bundle_dir / reinf_path.name)
+            reinf_result = generate_reinforcement(
+                geoName,
+                tempPath,
+                cfg["minC"],
+                cfg["maxC"],
+                grid=reinf.get("grid"),
+                cad=reinf_cad,
+                element_length=reinf.get("elementLength", 1.0),
+                diameter=reinf.get("elementDiameter", 1.0),
+                element_type=reinf.get("reinfElementType", "2DOF-T2D2/LINK1"),
+            )
         if _toggle_on(cfg["htcToggle"]):
             mkData_LDPMCSL_flowEdges(geoName, edgeData, tempPath)
 
@@ -503,10 +576,10 @@ def run_external_bundle(bundle_dir):
                 geoName,
                 tempPath,
             )
-            if pathSegments is not None and len(pathSegments) > 0:
-                mkVtk_orientationPath(pathSegments, geoName, tempPath)
             if projectedFacet is not None:
                 mkVtk_LDPMCSL_projFacets(geoName, projectedFacet, tempPath)
+        if str(cfg.get("geoType", "")) == "Sweep-3DP" and pathSegments:
+            mkVtk_orientationPath(pathSegments, geoName, tempPath)
         if IntersectedFiber is not None:
             mkVtk_LDPMCSL_nonIntFibers(
                 p1Fibers,
@@ -517,6 +590,33 @@ def run_external_bundle(bundle_dir):
                 geoName,
                 IntersectedFiber,
                 tempPath,
+            )
+        reinf = cfg.get("reinforcement")
+        if reinf and reinf_result is None:
+            reinf_cad = reinf.get("cad")
+            if reinf_cad:
+                reinf_cad = dict(reinf_cad)
+                reinf_path = Path(reinf_cad.get("path") or "")
+                if not reinf_path.is_file():
+                    reinf_cad["path"] = str(bundle_dir / reinf_path.name)
+            reinf_result = generate_reinforcement(
+                geoName,
+                tempPath,
+                cfg["minC"],
+                cfg["maxC"],
+                grid=reinf.get("grid"),
+                cad=reinf_cad,
+                element_length=reinf.get("elementLength", 1.0),
+                diameter=reinf.get("elementDiameter", 1.0),
+                element_type=reinf.get("reinfElementType", "2DOF-T2D2/LINK1"),
+            )
+        if reinf_result and reinf_result.get("nodes") and reinf_result.get("elements"):
+            mkVtk_LDPMCSL_reinforcement(
+                geoName,
+                tempPath,
+                reinf_result["nodes"],
+                reinf_result["elements"],
+                diameter=reinf_result.get("diameter", 1.0),
             )
 
     if cfg["singleTetGen"]:

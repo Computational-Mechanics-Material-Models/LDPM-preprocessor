@@ -40,7 +40,7 @@ def mkData_particles(nodes,diameters,geoName,tempPath):
     with open(Path(tempPath + geoName + \
         '-data-particles.dat'),"w") as f:                                       
         f.write('// ================================================================================\n')  
-        f.write('// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/chrono-preprocessor\n')  
+        f.write('// LDPM WORKBENCH - github.com/Concrete-Chrono-Development/LDPM-preprocessor\n')  
         f.write('//\n')  
         f.write('// Copyright (c) 2023 \n')  
         f.write('// All rights reserved. \n')  

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="face" x1="14" y1="10" x2="50" y2="54" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fce94f"/>
+      <stop offset="1" stop-color="#c4a000"/>
+    </linearGradient>
+  </defs>
+  <!-- Clear L footprint -->
+  <path fill="url(#face)" stroke="#5c4000" stroke-width="2" stroke-linejoin="round"
+        d="M16 10 H30 V40 H48 V54 H16 Z"/>
+</svg>
